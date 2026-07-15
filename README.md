@@ -6,7 +6,13 @@ how long you spend in each app during it — **no focus/distraction judgment** �
 so you can review where your time actually went. Everything stays local on your
 Mac.
 
-See [`SPEC.md`](SPEC.md) for the full product specification.
+## Documentation
+
+- **[SPEC.md](SPEC.md)** — product scope, locked decisions, and the milestone roadmap.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — modules, data flow, and design rationale.
+- **[CLAUDE.md](CLAUDE.md)** — working guide for coding agents / contributors (build, conventions, gotchas); [AGENTS.md](AGENTS.md) points here.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — setup, build, and contribution workflow.
+- **[CHANGELOG.md](CHANGELOG.md)** — milestone history.
 
 ## Status
 
