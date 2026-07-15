@@ -28,15 +28,28 @@ struct DashboardView: View {
 
     var body: some View {
         let insights = computeInsights()
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                tiles(insights)
-                trendSection(insights)
-                if !insights.byApp.isEmpty { topAppsSection(insights) }
-                if !insights.byLabel.isEmpty { byLabelSection(insights) }
-                recentSection()
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    tiles(insights)
+                    trendSection(insights)
+                    if !insights.byApp.isEmpty { topAppsSection(insights) }
+                    if !insights.byLabel.isEmpty { byLabelSection(insights) }
+                    recentSection()
+                }
+                .padding(20)
             }
-            .padding(20)
+            .navigationTitle("Dashboard")
+            // Keep every push in this stack value-based (typed routes). Do NOT mix
+            // in destination-closure links (`NavigationLink { SomeView() }`) —
+            // mixing the two styles desyncs the stack and intermittently misroutes
+            // Back (e.g. popping "All Sessions" jumps into a session detail).
+            .navigationDestination(for: FocusSession.self) { session in
+                SessionDetailView(session: session)
+            }
+            .navigationDestination(for: AllSessionsRoute.self) { _ in
+                AllSessionsView()
+            }
         }
         .frame(minWidth: 620, minHeight: 520)
         .onDisappear { DashboardWindow.didClose() }
@@ -137,31 +150,45 @@ struct DashboardView: View {
     @ViewBuilder
     private func recentSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Recent blocks").font(.headline)
+            HStack {
+                Text("Recent blocks").font(.headline)
+                Spacer()
+                if !completed.isEmpty {
+                    NavigationLink("See all", value: AllSessionsRoute())
+                }
+            }
             if completed.isEmpty {
                 emptyHint("No completed blocks yet. Start one from the menu bar.")
             } else {
                 ForEach(Array(completed.prefix(15))) { session in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(session.label).lineLimit(1)
-                            Text(session.start.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 1) {
-                            Text(TimeFormat.clock(session.activeSeconds)).monospacedDigit()
-                            if session.awaySeconds >= 1 {
-                                Text("away \(TimeFormat.clock(session.awaySeconds))")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .font(.callout)
+                    NavigationLink(value: session) { recentRow(session) }
+                        .buttonStyle(.plain)
                     Divider()
                 }
             }
         }
+    }
+
+    private func recentRow(_ session: FocusSession) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(session.label).lineLimit(1)
+                Text(session.start.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(TimeFormat.clock(session.activeSeconds)).monospacedDigit()
+                if session.awaySeconds >= 1 {
+                    Text("away \(TimeFormat.clock(session.awaySeconds))")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            Image(systemName: "chevron.right")
+                .font(.caption2).foregroundStyle(.tertiary)
+        }
+        .font(.callout)
+        .contentShape(Rectangle())
     }
 
     private func emptyHint(_ text: String) -> some View {

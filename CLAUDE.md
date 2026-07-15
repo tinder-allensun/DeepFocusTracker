@@ -73,6 +73,17 @@ files in that folder and Xcode picks them up — **no `project.pbxproj` editing.
 - **Opening a window from the agent:** an `LSUIElement` app must flip
   `NSApp.setActivationPolicy(.regular)` + `activate()` to show a window, and
   revert to `.accessory` on close (see `DashboardWindow`).
+- **NavigationStack back button (dashboard):** in the dashboard `Window`, the
+  system-injected back button overlaps the pushed view's title and won't accept
+  clicks. Hide it with `.navigationBarBackButtonHidden(true)` and supply your own
+  toolbar `Button` wired to `@Environment(\.dismiss)` (see `AllSessionsView` /
+  `SessionDetailView`).
+- **NavigationStack — don't mix link styles:** keep **all** pushes value-based
+  (`.navigationDestination(for:)` + `NavigationLink(value:)`). Mixing in a
+  destination-closure link (`NavigationLink { SomeView() }`, e.g. the old
+  "See all") desyncs the typed path and *intermittently* misroutes Back — popping
+  one screen can jump into a detail view. Add a tiny `Hashable` route type
+  (`AllSessionsRoute`) rather than a closure link.
 - **Timers:** add to `RunLoop.main` in `.common` mode and use
   `MainActor.assumeIsolated { … }` inside the closure.
 - **Store reset during dev:** the store lives at

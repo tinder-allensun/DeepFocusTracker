@@ -104,6 +104,7 @@ final class FocusController {
         session.end = now
         session.activeSeconds = summary.activeSeconds
         session.awaySeconds = summary.awaySeconds
+        session.switchCount = summary.switchCount
         try? context.save()
 
         lastFinishedSession = session

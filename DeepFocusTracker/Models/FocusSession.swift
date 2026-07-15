@@ -19,6 +19,10 @@ final class FocusSession {
     var activeSeconds: TimeInterval = 0
     /// Time the user was idle / away, cached when the block ends.
     var awaySeconds: TimeInterval = 0
+    /// Number of frontmost-app switches during the block, cached when it ends.
+    /// The inline default (`= 0`) gives the attribute a value so lightweight
+    /// migrations can populate existing rows (which read back as 0).
+    var switchCount: Int = 0
 
     init(label: String, start: Date, targetDuration: TimeInterval? = nil) {
         self.id = UUID()
@@ -28,6 +32,7 @@ final class FocusSession {
         self.targetDuration = targetDuration
         self.activeSeconds = 0
         self.awaySeconds = 0
+        self.switchCount = 0
     }
 
     var isRunning: Bool { end == nil }

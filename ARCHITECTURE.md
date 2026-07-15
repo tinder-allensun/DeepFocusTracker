@@ -28,9 +28,9 @@ Source lives in `DeepFocusTracker/` (a file-system **synchronized group** — se
 |---|---|
 | `App/` | `@main` entry (`DeepFocusTrackerApp`), the `AppDelegate` (sets `.accessory` policy), the SwiftData `ModelContainer` factory, and the two scenes (menu-bar + dashboard). |
 | `Models/` | SwiftData `@Model` types: `FocusSession`, `AppInterval`, `SessionLabel`. |
-| `Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup). |
+| `Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup), `SessionHistory` (delete a block + its intervals). |
 | `Insights/` | `InsightsService` — pure aggregation of history into dashboard figures. |
-| `Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/DashboardView`. |
+| `Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `AllSessionsView`, `SessionDetailView`). |
 | `Support/` | Small shared helpers (`TimeFormat`). |
 
 ## Data model
@@ -38,6 +38,9 @@ Source lives in `DeepFocusTracker/` (a file-system **synchronized group** — se
 Three SwiftData entities. Note that `AppInterval` links to its session by a
 plain `UUID` (`sessionID`), **not** a SwiftData relationship — intervals are
 written in a batch when a block ends, and the dashboard joins them in memory.
+Because there's no relationship, there's also **no cascade delete**: removing a
+session must explicitly delete its intervals too (see `SessionHistory.delete`),
+or they orphan and keep skewing dashboard aggregates.
 
 ```
 FocusSession                         AppInterval
@@ -47,15 +50,16 @@ FocusSession                         AppInterval
 ├─ end: Date?            (nil = live) ├─ start: Date
 ├─ targetDuration: TimeInterval?     └─ duration: TimeInterval
 ├─ activeSeconds: TimeInterval = 0
-└─ awaySeconds:   TimeInterval = 0
+├─ awaySeconds:   TimeInterval = 0
+└─ switchCount:   Int = 0
 
 SessionLabel:  name (unique), colorHex, createdAt   // reusable block labels
 ```
 
-`activeSeconds` / `awaySeconds` are **cached totals** written when a block ends
-(the authoritative per-app detail is the `AppInterval` rows). They carry inline
-defaults (`= 0`) so SwiftData lightweight migration can populate existing rows —
-see [Persistence & migration](#persistence--migration).
+`activeSeconds` / `awaySeconds` / `switchCount` are **cached totals** written when
+a block ends (the authoritative per-app detail is the `AppInterval` rows). They
+carry inline defaults (`= 0`) so SwiftData lightweight migration can populate
+existing rows — see [Persistence & migration](#persistence--migration).
 
 ## Runtime data flow
 
@@ -97,12 +101,21 @@ the block ends. See [Known limitations](#known-limitations--future).
 ### The dashboard
 
 ```
-DashboardView
+DashboardView (wrapped in a NavigationStack)
   ├─ @Query FocusSession (completed) + @Query AppInterval
   ├─ map → [SessionRecord] + [AppSpan]
   ├─ InsightsService.compute(...) → Insights { today, streak, daily[], byApp[], byLabel[] }
-  └─ render: tiles + Swift Charts trend + top-apps chart + by-label + recent list
+  ├─ render: tiles + Swift Charts trend + top-apps chart + by-label + recent list
+  └─ drill-in: recent list / AllSessionsView → SessionDetailView
+       (rebuilds one block's UsageSummary from its AppInterval rows; can delete)
 ```
+
+The **detail** path is judgment-free like the rest of the app: `SessionDetailView`
+re-runs `UsageAggregator.summarize` over just that block's `AppInterval` rows
+(scoped `@Query` on `sessionID`), feeding the cached `awaySeconds` / `switchCount`
+totals, and shows the same numbers the end-of-block summary does — just for a
+historical block, with no per-app cap. Deleting routes through
+`SessionHistory.delete` (session + its intervals) behind a confirmation.
 
 ## Concurrency & state
 
@@ -200,5 +213,6 @@ when useful (`DeepFocusTrackerTests`) targeting those types. Interactive behavio
   launch, but its intervals aren't). Recovery restarts tracking from launch.
 - **No versioned migration plan** (see Persistence & migration).
 - **Per-app % is of active time** (excludes Away) — could be made configurable.
-- **Single dashboard window**, read-only; no export.
+- **Single dashboard window**; no export. Blocks can be inspected and deleted,
+  but not edited.
 - See [SPEC.md](SPEC.md) §11 for the running list of open questions.
