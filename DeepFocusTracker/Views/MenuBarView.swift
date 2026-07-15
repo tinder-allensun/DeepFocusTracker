@@ -2,8 +2,8 @@ import SwiftUI
 import SwiftData
 import AppKit
 
-/// The menu-bar popover: start a block when idle, or watch the live timer and
-/// end it while a block is running.
+/// The menu-bar popover: start a block when idle, watch the live timer and
+/// per-app tallies while running, or review the summary when a block ends.
 struct MenuBarView: View {
     @Environment(FocusController.self) private var focus
     @Query(sort: \SessionLabel.createdAt) private var labels: [SessionLabel]
@@ -19,6 +19,8 @@ struct MenuBarView: View {
 
             if let session = focus.activeSession {
                 runningView(session)
+            } else if let summary = focus.lastSummary, let finished = focus.lastFinishedSession {
+                SessionSummaryView(session: finished, summary: summary, onDone: { focus.dismissSummary() })
             } else {
                 idleView
             }
@@ -27,7 +29,7 @@ struct MenuBarView: View {
             footer
         }
         .padding(14)
-        .frame(width: 300)
+        .frame(width: 320)
     }
 
     private var header: some View {
@@ -81,26 +83,39 @@ struct MenuBarView: View {
     // MARK: Running state
 
     private func runningView(_ session: FocusSession) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let now = focus.tick            // reading tick refreshes this view each second
+        let usage = focus.liveUsage
+        let elapsed = session.elapsed(asOf: now)
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Circle().fill(.green).frame(width: 8, height: 8)
-                Text(session.label).font(.title3).bold()
+                Text(session.label).font(.title3).bold().lineLimit(1)
                 Spacer()
             }
 
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let elapsed = session.elapsed(asOf: context.date)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(TimeFormat.clock(elapsed))
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                    if let target = session.targetDuration {
-                        ProgressView(value: min(elapsed, target), total: target)
-                        Text("of \(TimeFormat.clock(target)) target")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(TimeFormat.clock(elapsed))
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                if let target = session.targetDuration {
+                    ProgressView(value: min(elapsed, target), total: target)
+                    Text("of \(TimeFormat.clock(target)) target")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+            }
+
+            if let current = focus.currentAppName {
+                Text("now: \(current)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if !usage.perApp.isEmpty {
+                Divider()
+                liveUsageList(usage)
             }
 
             Button(role: .destructive) {
@@ -111,6 +126,36 @@ struct MenuBarView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+        }
+    }
+
+    @ViewBuilder
+    private func liveUsageList(_ usage: UsageSummary) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(usage.perApp.prefix(4))) { app in
+                HStack(spacing: 8) {
+                    Text(app.appName).lineLimit(1)
+                    Spacer()
+                    Text("\(Int((usage.fraction(of: app) * 100).rounded()))%")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Text(TimeFormat.clock(app.seconds))
+                        .monospacedDigit()
+                        .frame(width: 54, alignment: .trailing)
+                }
+                .font(.caption)
+            }
+            if usage.awaySeconds >= 1 {
+                HStack(spacing: 8) {
+                    Text("Away").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(TimeFormat.clock(usage.awaySeconds))
+                        .monospacedDigit()
+                        .frame(width: 54, alignment: .trailing)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+            }
         }
     }
 

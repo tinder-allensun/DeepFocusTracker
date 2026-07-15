@@ -1,14 +1,14 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-14 · Status: M1 (menu-bar skeleton) shipped_
+_Last updated: 2026-07-14 · Status: M1 shipped; M2 (app-usage tracking) in progress_
 
 ## 1. Overview
 
 DeepFocusTracker is a privacy-first macOS menu-bar app that helps you do — and
-measure — deep focus work. You start a **focus block** (naming what you're
-working on), and the app quietly measures how much of that block was real deep
-work vs. drift by watching your active application. It nudges you gently when
-you wander, and shows you where your focus actually goes over time.
+review — deep focus work. You start a **focus block** (naming what you're
+working on), and the app quietly records how long you spend in each application
+during that block. It doesn't judge what's "focus" vs. "distraction" — it shows
+you where your time actually went, and you interpret it.
 
 All data stays local on the Mac. No account, no network, no telemetry.
 
@@ -16,122 +16,173 @@ All data stays local on the Mac. No account, no network, no telemetry.
 
 ```
 Start block (+ label)
-   → app auto-measures active-app usage
-   → gentle nudge on drift
+   → app records time spent per app while you work
    → block ends
-   → focus score + summary
+   → per-app time + % summary
    → rolls into dashboard stats
 ```
 
 ## 2. Goals & non-goals
 
 **Goals (MVP)**
-- Make it effortless to start a focus block and see, afterward, how focused you were.
-- Measure focus automatically so it doesn't rely purely on discipline/self-report.
-- Surface trends over time (where does my deep work actually go?).
-- Frictionless install — works with no scary system permissions.
+- Make it effortless to start a focus block and see, afterward, where your time went.
+- Record per-app usage automatically — no reliance on memory or self-report.
+- Leave interpretation to you: the app reports, it doesn't judge focus vs. distraction.
+- Surface trends over time (how much deep-work time, and where it goes).
+- Frictionless install — no special system permissions.
 - Fully local and private.
 
 **Non-goals (MVP)**
 - Not a to-do / project manager.
-- Not an all-day background surveillance tracker (focus is measured *within blocks*).
-- Not a website/app blocker (yet).
+- Not an all-day background tracker (usage is recorded only *within blocks*).
+- Not a website/app blocker.
+- **Not a judge** — it won't label apps "focus" or "distraction"; it records, you decide.
 - No cloud sync or mobile companion (yet).
 
 ## 3. Product decisions (locked)
 
 | Decision | Choice |
 |---|---|
-| Tracking approach | **Hybrid** — you start a session; app auto-measures app usage during it |
-| Intervention on drift | **Gentle nudge** (soft, ignorable notification; rate-limited) |
+| Tracking approach | **Hybrid** — you start a session; the app auto-records app usage during it |
+| Focus judgment | **None** — the app records per-app time + %; you interpret it (no focus/distraction labels) |
 | Organization | **Lightweight tasks/labels** (name + color per block) |
 | Primary interface | **Menu bar + dashboard window** |
 | Menu-bar counter | **Live MM:SS** — counts down to a target (**+overtime** past it), counts up when no target is set |
 | Tracking granularity | **App-level only** (frontmost application; no window titles → no Accessibility permission) |
-| Idle handling | Idle (no input for ~2 min) is **excluded** from the score, not counted against it |
+| Idle handling | Idle (no input ~2 min) is recorded as its own **"Away"** bucket, not attributed to any app |
 | Breaks / Pomodoro | **Not in v1** — blocks are open-ended or single-target |
 
 ## 4. MVP feature set (in scope)
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min); live focus status once tracking lands (M2). |
+| 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min). |
 | 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. |
-| 3 | **Automatic focus measurement** | While a block runs, track the frontmost app and split time into **Focus / Neutral / Distraction**. Idle time detected and excluded. |
-| 4 | **App categorization** | Sensible defaults (IDE = focus, social = distraction, etc.) + user can recategorize any app. Edits remembered globally. |
-| 5 | **Gentle nudge** | If you sit on a Distraction app past a threshold (default 30s), a soft notification reminds you. Rate-limited so it never spams. |
-| 6 | **Session summary** | On block end: focus score (% focused), time breakdown, and where the drift went. |
-| 7 | **Dashboard window** | History list + daily/weekly totals, focus-score trend, breakdown by label and by app, and a simple daily streak. |
-| 8 | **Settings** | Nudge threshold, default block length, category management, launch-at-login. |
-| 9 | **Local & private** | No account, no network calls, no telemetry. Data in a local store on the Mac. |
+| 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. No focus/distraction judgment — just the numbers. |
+| 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
+| 5 | **Dashboard window** | History list + daily/weekly totals, focused-time trend, per-app and per-label breakdowns, and a simple daily streak. |
+| 6 | **Settings** | Default block length, idle timeout, launch-at-login. |
+| 7 | **Local & private** | No account, no network calls, no telemetry. Data in a local store on the Mac. |
 
-## 5. Out of scope (candidates for v1.1+)
+## 5. Out of scope (candidates for later)
 
-- Active app/website **blocking**
-- In-browser **URL/tab tracking**
-- Window-**title** tracking (optional opt-in, would add Accessibility permission for sharper scoring on browsers/chat)
-- **All-day** automatic tracking (no session needed)
-- Projects/goals hierarchy with targets
-- Pomodoro **break** scheduling
-- macOS **Focus-mode** / **Calendar** integration
-- **iCloud sync** / iOS companion
-- Data **export**
-- AI insights
+- **Automatic focus/distraction classification** — deliberately omitted; the app records, you interpret.
+- **Real-time nudges / drift interventions** — deferred (see note under §10); revisit once you've reviewed your own patterns.
+- Active app/website **blocking**.
+- In-browser **URL/tab tracking**.
+- Window-**title** tracking (optional opt-in later; would add Accessibility permission for finer per-app context).
+- **All-day** automatic tracking (no session needed).
+- Projects/goals hierarchy with targets.
+- Pomodoro **break** scheduling.
+- macOS **Focus-mode** / **Calendar** integration.
+- **iCloud sync** / iOS companion.
+- Data **export**.
 
 ## 6. Data model (sketch)
 
-- **FocusSession** — `id, label, start, end, targetDuration?, focusedSec, neutralSec, distractedSec, idleSec, focusScore, nudgeCount`
-- **AppInterval** — `sessionId, appBundleId, appName, category, start, duration`
-- **AppCategoryRule** — `bundleId → focus | neutral | distraction`
-- **Label** — `name, color`
-- **Settings** — `nudgeThresholdSec, defaultDurationMin, launchAtLogin, idleTimeoutSec`
+- **FocusSession** — `id, label, start, end, targetDuration?, activeSeconds, awaySeconds`
+- **AppInterval** — `sessionId, appBundleId, appName, start, duration`
+- **SessionLabel** — `name, colorHex, createdAt`
+- **Settings** — `defaultDurationMin, idleTimeoutSec, launchAtLogin` (`@AppStorage`-backed)
 
-## 7. Tracking & scoring behavior
+_A session's per-app time + % is derived from its `AppInterval`s; `activeSeconds` /
+`awaySeconds` are cached on the session at stop for fast dashboard rollups._
 
-- **Active-app detection** is event-driven via `NSWorkspace` activation notifications
-  (record an `AppInterval` each time the frontmost app changes). No polling, no permission.
-- Each interval is classified **Focus / Neutral / Distraction** via `AppCategoryRule`.
-- **Idle detection** via input-event idle time; after `idleTimeoutSec` (~2 min) of no
-  input, tracking pauses and that time is bucketed as idle (excluded from the score).
-- **Focus score** = `focusedSec / (focusedSec + distractedSec)` — neutral and idle excluded.
-- Handle **sleep/wake** and **screen lock** as idle boundaries.
+## 7. Tracking behavior
 
-## 8. Nudge behavior
+- **Active-app detection** is event-driven via `NSWorkspace` activation notifications: each time the frontmost app changes, close the current span and record an `AppInterval` (bundle id, name, start, duration).
+- **Idle / Away** via input-event idle time (`CGEventSource`): after `idleTimeoutSec` (~2 min) with no input, that time accrues to an **Away** bucket instead of the frontmost app; attribution resumes on the next input.
+- **Per-app breakdown** = sum of each app's interval durations; **%** = per-app time ÷ active (non-away) time.
+- **App-switch count** = number of frontmost-app changes during the block (an objective, judgment-free measure of fragmentation).
+- **Sleep/wake** and **screen lock** are treated as span boundaries and count as Away.
 
-- Trigger: frontmost app is a **Distraction** continuously for > `nudgeThresholdSec` (default 30s).
-- Delivery: soft `UserNotifications` banner ("Still on task? You're in <App>").
-- **Rate-limited**: at most one nudge per app per cooldown window to avoid spam.
-
-## 9. Permissions
+## 8. Permissions
 
 | Capability | Permission needed |
 |---|---|
 | Frontmost-app tracking | **None** (`NSWorkspace`) |
 | Idle detection | **None** (input-event idle time) |
-| Nudges | **Notifications** (prompted on first block) |
 | Launch at login | **None** (`SMAppService`) |
 
-_MVP intentionally requires no Accessibility or Screen Recording permission._
+_MVP requires **no special permissions** — no Accessibility, Screen Recording, or Notifications._
 
-## 10. Tech stack (recommended)
+## 9. Tech stack (recommended)
 
 - **Swift + SwiftUI**, targeting current macOS (deployment target macOS 15.0).
 - Menu bar: `MenuBarExtra` (window style for the popover).
-- Charts: **Swift Charts**.
+- Charts: **Swift Charts** (dashboard).
 - Persistence: **SwiftData** (local store).
 - Active-app events: `NSWorkspace.didActivateApplicationNotification`.
-- Notifications: `UserNotifications`. Launch-at-login: `SMAppService`.
+- Idle: `CGEventSource`. Launch-at-login: `SMAppService`.
 
-## 11. Build milestones
+## 10. Build milestones & implementation plan
 
-1. **M1 — Skeleton ✅ (shipped):** menu-bar agent app + start/stop block + labels + live menu-bar counter (countdown / count-up / overtime) + SwiftData models. Builds & launches.
-2. **M2 — Measurement:** active-app tracking + categorization + session summary.
-3. **M3 — Nudges:** drift detection + rate-limited notifications.
-4. **M4 — Insights:** dashboard window + charts (trend, by-label, by-app, streak).
-5. **M5 — Polish:** settings + launch-at-login + category management + defaults.
+Roadmap (details below). Every milestone ships something you can *see* working — see each **Verify** line.
 
-## 12. Open questions / future
+| Milestone | Status | In one line |
+|---|---|---|
+| M1 — Skeleton | ✅ shipped | Menu-bar app, start/stop blocks, labels, live counter, SwiftData |
+| M2 — Usage tracking | ← in progress | Per-app time + % during a block + session summary |
+| M3 — Insights | planned | Dashboard window: history, trends, breakdowns, streak |
+| M4 — Polish | planned | Settings, launch-at-login |
 
-- Default category list — which apps ship as focus/neutral/distraction out of the box?
+### M1 — Skeleton ✅ (shipped)
+- **Built:** menu-bar-only agent (`MenuBarExtra`, `LSUIElement`, `.accessory`); SwiftData models + `FocusController` (start/stop, recover open block, seed labels, 1 s tick); popover UI + status-item label with the live counter; `TimeFormat`.
+- **Verify:** builds via `xcodebuild`; launches as a menu-bar agent; start/stop a block and watch the counter.
+
+### M2 — Automatic app-usage tracking  ← in progress
+- **Goal:** while a block runs, record how long you spend in each app and what % of the block that was — **no focus/distraction judgment**. You review the breakdown.
+- **Build:**
+  - Active-app tracking → one `AppInterval` per frontmost-app span (bundle id, name, start, duration).
+  - Idle/Away detection → time with no input becomes its own **"Away"** line, so stepping away isn't blamed on whatever app was open.
+  - Live popover: current app + running per-app tallies.
+  - End-of-block **summary**: per-app **time + %** (of active time), total active vs. away, and an **app-switch count**.
+- **Key files:**
+  - `Focus/ActivityMonitor.swift` — subscribes to `NSWorkspace.didActivateApplicationNotification`; opens/closes app spans; treats sleep/wake + screen lock as boundaries.
+  - `Focus/IdleDetector.swift` — `CGEventSource.secondsSinceLastEventType(...)` polled on a timer; routes idle time to Away.
+  - `Focus/UsageAggregator.swift` — pure `[AppInterval] (+ away) → per-app totals + %, active/away totals, switch count`.
+  - `Views/SessionSummaryView.swift`; updates to `FocusController` + `MenuBarView`.
+- **Data-model changes (from M1):** drop `FocusCategory` + `AppCategoryRule` (no categorization); `AppInterval` drops `category`; `FocusSession` drops the focused/neutral/distracted/score/nudge fields and gains `activeSeconds` + `awaySeconds`.
+- **Permissions:** none.
+- **Verify:** watch the popover per-app tallies grow as you switch apps; read the end-of-block breakdown; `UsageAggregator` is a pure function (unit-testable); optional `os_log` on each switch.
+
+### M3 — Insights dashboard
+- **Goal:** a real window aggregating *many* sessions — history, trends, breakdowns.
+- **Build:**
+  - A **Dashboard window** opened from the popover ("Open Dashboard…").
+  - Header: today's focused (active) time, # blocks, current streak.
+  - Trend chart (active minutes / day, last 7/30 days) — Swift Charts.
+  - Breakdown by app and by label (bar charts).
+  - Session history list (date, label, duration, active vs. away).
+- **Key files:**
+  - A `Window("Dashboard", id: "dashboard")` scene; open via `openWindow(id:)`.
+  - `Views/Dashboard/…` (DashboardView, TrendChart, BreakdownChart, SessionHistoryList, StreakView).
+  - `Insights/InsightsService.swift` — pure aggregations (daily/weekly rollups, per-app, per-label, streak).
+- **Apple-specific gotcha:** an `LSUIElement` agent has no normal windows — opening one needs `NSApp.setActivationPolicy(.regular)` + `NSApp.activate(...)` while the window is open (revert to `.accessory` on close), so the dashboard can take focus and appear in the app switcher.
+- **Verify:** run a few blocks (or seed sample data under `#if DEBUG`), open the dashboard, confirm the numbers match; unit-test the aggregation + streak functions.
+
+### M4 — Polish (settings, launch-at-login)
+- **Goal:** make it configurable and a good daily citizen.
+- **Build:**
+  - **Settings** window (`Settings` scene, ⌘,): default block length, idle timeout.
+  - **Launch at login** toggle via `SMAppService.mainApp`.
+  - Move thresholds out of hardcoded constants into a `SettingsStore`.
+  - Menu-bar template icon, empty states, About.
+- **Key files:**
+  - `Settings/SettingsStore.swift` (`@Observable` over `@AppStorage`).
+  - `Views/Settings/SettingsView.swift`.
+  - `System/LoginItem.swift` (wraps `SMAppService`).
+- **Approach:** feed `SettingsStore` values into `IdleDetector` and the block defaults. `SMAppService.mainApp.register()` / `.unregister()`, reflecting `.status`.
+- **Verify:** toggle launch-at-login and confirm it in System Settings → Login Items; change the idle timeout and observe Away attribution change.
+
+### Notes
+- **Nudges were removed** by design: the app doesn't judge focus vs. distraction, so real-time "you're distracted" nudges don't fit. If wanted later, they'd be **user-defined** (you pick which apps or time thresholds trigger them), revisited after you've reviewed your own usage data.
+- **Testing:** `UsageAggregator` (M2) and `InsightsService` (M3) are pure and kept separate from UI so they stay unit-testable; a formal XCTest target can be added when useful.
+- **Settings** are `@AppStorage`-backed for MVP; the "Settings" entity is a `SettingsStore`, not a SwiftData model.
+
+## 11. Open questions / future
+
 - Should very short blocks (< a few min) be discarded from stats?
-- v1.1: opt-in window-level tracking toggle (adds Accessibility) for sharper browser/chat scoring.
+- Should the per-app **%** be of active time (default) or of the whole block including Away?
+- Later: opt-in window-level tracking (adds Accessibility) for finer per-app context (e.g. which site in the browser).
+- Later: optional, user-defined nudges once usage patterns are understood.
