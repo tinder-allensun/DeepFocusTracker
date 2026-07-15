@@ -6,6 +6,7 @@ import AppKit
 /// per-app tallies while running, or review the summary when a block ends.
 struct MenuBarView: View {
     @Environment(FocusController.self) private var focus
+    @Environment(\.openWindow) private var openWindow
     @Query(sort: \SessionLabel.createdAt) private var labels: [SessionLabel]
 
     @State private var labelText: String = ""
@@ -189,7 +190,16 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
+            Button {
+                DashboardWindow.show(openWindow)
+            } label: {
+                Label("Dashboard", systemImage: "chart.bar.xaxis")
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+
             Spacer()
+
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.borderless)
                 .controlSize(.small)

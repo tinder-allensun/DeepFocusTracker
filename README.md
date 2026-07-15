@@ -10,7 +10,7 @@ See [`SPEC.md`](SPEC.md) for the full product specification.
 
 ## Status
 
-**M1 & M2 shipped.**
+**M1–M3 shipped.**
 
 - **M1 — menu-bar skeleton:** start/stop a focus block from the menu bar, give it
   a label and an optional target, and watch a live counter in the status bar
@@ -20,8 +20,12 @@ See [`SPEC.md`](SPEC.md) for the full product specification.
   separately. Live per-app tallies appear in the popover (the current app is
   always shown), and an end-of-block summary breaks down time + %, active vs.
   away, and an app-switch count. It records only — you interpret.
+- **M3 — insights dashboard:** open a window from the menu bar with today / streak
+  / last-14-days tiles, an active-minutes-per-day trend chart, top-apps and
+  by-label breakdowns, and a recent-blocks history — aggregated from your saved
+  sessions.
 
-Next: **M3 — insights dashboard** (history, trends, breakdowns across sessions).
+Next: **M4 — polish** (settings, launch-at-login).
 
 ## Requirements
 
@@ -38,6 +42,7 @@ open DeepFocusTracker.xcodeproj
 
 DeepFocusTracker is a menu-bar-only agent (no Dock icon) — look for the 🧠 icon
 in the status bar. It's signed to run locally, so no developer team is required.
+(Opening the Dashboard briefly shows a Dock icon while its window is up.)
 
 Or from the command line:
 
@@ -52,11 +57,13 @@ open DerivedData/Build/Products/Debug/DeepFocusTracker.app
 ```
 DeepFocusTracker.xcodeproj      Xcode project (build configuration only)
 DeepFocusTracker/               Source (file-system synchronized group)
-├── App/                        App entry point + menu-bar scene + SwiftData container
+├── App/                        App entry point + menu-bar & dashboard scenes + SwiftData container
 ├── Models/                     SwiftData models (FocusSession, AppInterval, SessionLabel)
 ├── Focus/                      Session lifecycle + tracking:
 │                                 FocusController, ActivityMonitor, IdleDetector, UsageAggregator
-├── Views/                      Menu-bar popover, status-item label, session summary
+├── Insights/                   InsightsService — pure history aggregations (trends, streak, breakdowns)
+├── Views/                      Menu-bar popover, status-item label, session summary,
+│                                 and Dashboard/ (the insights window)
 └── Support/                    Shared helpers (time formatting)
 SPEC.md                         Full MVP specification
 ```

@@ -14,9 +14,11 @@ final class FocusSession {
     var targetDuration: TimeInterval?
 
     /// Time attributed to apps (non-idle), cached when the block ends.
-    var activeSeconds: TimeInterval
+    /// The inline default (`= 0`) gives the SwiftData attribute a default value
+    /// so lightweight store migrations can populate existing rows.
+    var activeSeconds: TimeInterval = 0
     /// Time the user was idle / away, cached when the block ends.
-    var awaySeconds: TimeInterval
+    var awaySeconds: TimeInterval = 0
 
     init(label: String, start: Date, targetDuration: TimeInterval? = nil) {
         self.id = UUID()

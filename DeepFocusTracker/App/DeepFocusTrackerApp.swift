@@ -24,6 +24,13 @@ struct DeepFocusTrackerApp: App {
             MenuBarLabel(focus: focus)
         }
         .menuBarExtraStyle(.window)
+
+        Window("DeepFocusTracker — Dashboard", id: DashboardWindow.id) {
+            DashboardView()
+                .modelContainer(container)
+        }
+        .defaultSize(width: 700, height: 620)
+        .windowResizability(.contentMinSize)
     }
 
     /// Builds the local SwiftData store. If it can't be opened — e.g. after a

@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-14 · Status: M1 & M2 shipped; M3 (insights dashboard) next_
+_Last updated: 2026-07-14 · Status: M1–M3 shipped; M4 (polish) next_
 
 ## 1. Overview
 
@@ -60,7 +60,7 @@ Start block (+ label)
 | 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. |
 | 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. The current app is always shown. No focus/distraction judgment — just the numbers. |
 | 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
-| 5 | **Dashboard window** | History list + daily/weekly totals, focused-time trend, per-app and per-label breakdowns, and a simple daily streak. |
+| 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. |
 | 6 | **Settings** | Default block length, idle timeout, launch-at-login. |
 | 7 | **Local & private** | No account, no network calls, no telemetry. Data in a local store on the Mac. |
 
@@ -87,6 +87,8 @@ Start block (+ label)
 
 _A session's per-app time + % is derived from its `AppInterval`s; `activeSeconds` /
 `awaySeconds` are cached on the session at stop for fast dashboard rollups._
+_New non-optional attributes carry inline defaults (`= 0`) so SwiftData lightweight
+migrations can populate existing rows._
 
 ## 7. Tracking behavior
 
@@ -109,9 +111,9 @@ _MVP requires **no special permissions** — no Accessibility, Screen Recording,
 ## 9. Tech stack
 
 - **Swift + SwiftUI**, targeting current macOS (deployment target macOS 15.0).
-- Menu bar: `MenuBarExtra` (window style for the popover).
+- Menu bar: `MenuBarExtra` (window style for the popover). Dashboard: a `Window` scene.
 - Charts: **Swift Charts** (dashboard).
-- Persistence: **SwiftData** (local store; self-healing across dev schema changes).
+- Persistence: **SwiftData** (local store; attribute defaults keep migrations lightweight, with a self-healing / in-memory fallback if a store can't be opened).
 - Active-app events: `NSWorkspace.didActivateApplicationNotification`.
 - Idle: `CGEventSource`. Launch-at-login: `SMAppService`.
 
@@ -123,8 +125,8 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 |---|---|---|
 | M1 — Skeleton | ✅ shipped | Menu-bar app, start/stop blocks, labels, live counter, SwiftData |
 | M2 — Usage tracking | ✅ shipped | Per-app time + % during a block + session summary |
-| M3 — Insights | ← next | Dashboard window: history, trends, breakdowns, streak |
-| M4 — Polish | planned | Settings, launch-at-login |
+| M3 — Insights | ✅ shipped | Dashboard window: tiles, trend, breakdowns, recent history |
+| M4 — Polish | ← next | Settings, launch-at-login |
 
 ### M1 — Skeleton ✅ (shipped)
 - **Built:** menu-bar-only agent (`MenuBarExtra`, `LSUIElement`, `.accessory`); SwiftData models + `FocusController` (start/stop, recover open block, seed labels, 1 s tick); popover UI + status-item label with the live counter; `TimeFormat`.
@@ -132,33 +134,27 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 
 ### M2 — Automatic app-usage tracking ✅ (shipped)
 - **Goal:** while a block runs, record how long you spend in each app and what % of the block that was — **no focus/distraction judgment**. You review the breakdown.
-- **Built:**
-  - Active-app tracking → one `AppInterval` per frontmost-app span (bundle id, name, start, duration).
-  - Idle/Away detection → time with no input becomes its own **"Away"** line, so stepping away isn't blamed on whatever app was open.
-  - Live popover: current app + running per-app tallies; the **current app is always shown** (pinned + highlighted even when it's not in the top-4).
-  - End-of-block **summary**: per-app **time + %** (of active time), total active vs. away, and an **app-switch count**.
-  - **Self-healing SwiftData store** — resets on a schema change and falls back to in-memory rather than hard-crashing.
-- **Key files:** `Focus/ActivityMonitor.swift` (NSWorkspace app-switch spans; sleep/wake + screen-lock boundaries), `Focus/IdleDetector.swift` (`CGEventSource` idle polling → Away), `Focus/UsageAggregator.swift` (pure `[AppInterval] → per-app totals + %, active/away, switch count`), `Views/SessionSummaryView.swift`, plus updates to `FocusController` + `MenuBarView`.
-- **Data-model changes (from M1):** dropped `FocusCategory` + `AppCategoryRule`; `AppInterval` dropped `category`; `FocusSession` dropped the focused/neutral/distracted/score/nudge fields and gained `activeSeconds` + `awaySeconds`.
+- **Built:** active-app tracking (`AppInterval` per span); idle/Away detection; live popover tallies with the **current app always pinned/highlighted**; end-of-block **summary** (per-app time + %, active vs. away, app-switch count); self-healing SwiftData store.
+- **Key files:** `Focus/ActivityMonitor.swift`, `Focus/IdleDetector.swift`, `Focus/UsageAggregator.swift` (pure), `Views/SessionSummaryView.swift`, plus `FocusController` + `MenuBarView`.
 - **Permissions:** none.
-- **Verified:** switched among apps live and watched the per-app tallies + current-app pin update; reviewed the end-of-block summary (per-app time + %, active/away, switches). `UsageAggregator` is pure and unit-testable.
+- **Verified:** switched among apps live and watched the tallies + current-app pin; reviewed the end-of-block summary.
 
-### M3 — Insights dashboard  ← next
+### M3 — Insights dashboard ✅ (shipped)
 - **Goal:** a real window aggregating *many* sessions — history, trends, breakdowns.
-- **Build:**
-  - A **Dashboard window** opened from the popover ("Open Dashboard…").
-  - Header: today's active time, # blocks, current streak.
-  - Trend chart (active minutes / day, last 7/30 days) — Swift Charts.
-  - Breakdown by app and by label (bar charts).
-  - Session history list (date, label, duration, active vs. away).
+- **Built:**
+  - A **Dashboard window** opened from the popover's footer button.
+  - Tiles: today's active time + blocks, current streak, last-14-days total.
+  - Trend chart: active minutes/day over the last 14 days (Swift Charts).
+  - Top-apps chart, a by-label breakdown, and a recent-blocks list.
 - **Key files:**
-  - A `Window("Dashboard", id: "dashboard")` scene; open via `openWindow(id:)`.
-  - `Views/Dashboard/…` (DashboardView, TrendChart, BreakdownChart, SessionHistoryList, StreakView).
-  - `Insights/InsightsService.swift` — pure aggregations (daily/weekly rollups, per-app, per-label, streak).
-- **Apple-specific gotcha:** an `LSUIElement` agent has no normal windows — opening one needs `NSApp.setActivationPolicy(.regular)` + `NSApp.activate(...)` while the window is open (revert to `.accessory` on close), so the dashboard can take focus and appear in the app switcher.
-- **Verify:** run a few blocks (or seed sample data under `#if DEBUG`), open the dashboard, confirm the numbers match; unit-test the aggregation + streak functions.
+  - `Window("…", id: DashboardWindow.id)` scene in the app; opened via `openWindow`.
+  - `Views/Dashboard/DashboardView.swift` (incl. the `DashboardWindow` activation helper).
+  - `Insights/InsightsService.swift` — pure aggregations (today, streak, daily buckets, per-app via `UsageAggregator`, per-label).
+- **Apple-specific handling:** an `LSUIElement` agent has no normal windows, so opening the dashboard flips `NSApp.setActivationPolicy(.regular)` + `activate()` and reverts to `.accessory` on close (dropping back to a pure menu-bar app).
+- **Migration fix (found while shipping M3):** `FocusSession.activeSeconds` / `awaySeconds` were non-optional with no default, so SwiftData couldn't migrate an existing store and silently fell back to in-memory (no persistence). Fixed with inline defaults (`= 0`) so lightweight migration populates existing rows.
+- **Verified:** opened the dashboard against recorded history; confirmed the CoreData migration error is gone and sessions persist across relaunch.
 
-### M4 — Polish (settings, launch-at-login)
+### M4 — Polish (settings, launch-at-login)  ← next
 - **Goal:** make it configurable and a good daily citizen.
 - **Build:**
   - **Settings** window (`Settings` scene, ⌘,): default block length, idle timeout.
@@ -183,3 +179,4 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 - Should the per-app **%** be of active time (default) or of the whole block including Away?
 - Later: opt-in window-level tracking (adds Accessibility) for finer per-app context (e.g. which site in the browser).
 - Later: optional, user-defined nudges once usage patterns are understood.
+- Later: a real SwiftData migration plan (versioned schema) before there's data worth preserving.
