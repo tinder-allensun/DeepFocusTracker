@@ -36,18 +36,31 @@ struct DeepFocusTrackerApp: App {
             SessionLabel.self,
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        do {
-            return try ModelContainer(for: schema, configurations: configuration)
-        } catch {
-            let base = configuration.url.path()
-            for path in [base, base + "-wal", base + "-shm"] {
-                try? FileManager.default.removeItem(atPath: path)
-            }
-            if let container = try? ModelContainer(for: schema, configurations: configuration) {
-                return container
-            }
-            fatalError("Failed to create the DeepFocusTracker model container.")
+
+        // 1) Try the on-disk store.
+        if let container = try? ModelContainer(for: schema, configurations: configuration) {
+            return container
         }
+
+        // 2) Couldn't open it — most likely a schema change during development.
+        //    Reset the store once and retry. (Replace with a real migration plan
+        //    before there's data worth preserving.)
+        let base = configuration.url.path()
+        for path in [base, base + "-wal", base + "-shm"] {
+            try? FileManager.default.removeItem(atPath: path)
+        }
+        if let container = try? ModelContainer(for: schema, configurations: configuration) {
+            return container
+        }
+
+        // 3) Last resort: run in memory so the app still launches (no
+        //    persistence this session) instead of hard-crashing.
+        NSLog("DeepFocusTracker: on-disk store unavailable; falling back to an in-memory store.")
+        let inMemory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        if let container = try? ModelContainer(for: schema, configurations: inMemory) {
+            return container
+        }
+        fatalError("DeepFocusTracker could not create any model container.")
     }
 }
 

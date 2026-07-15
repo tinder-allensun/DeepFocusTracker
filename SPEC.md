@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-14 · Status: M1 shipped; M2 (app-usage tracking) in progress_
+_Last updated: 2026-07-14 · Status: M1 & M2 shipped; M3 (insights dashboard) next_
 
 ## 1. Overview
 
@@ -58,7 +58,7 @@ Start block (+ label)
 |---|---------|--------|
 | 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min). |
 | 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. |
-| 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. No focus/distraction judgment — just the numbers. |
+| 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. The current app is always shown. No focus/distraction judgment — just the numbers. |
 | 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
 | 5 | **Dashboard window** | History list + daily/weekly totals, focused-time trend, per-app and per-label breakdowns, and a simple daily streak. |
 | 6 | **Settings** | Default block length, idle timeout, launch-at-login. |
@@ -106,12 +106,12 @@ _A session's per-app time + % is derived from its `AppInterval`s; `activeSeconds
 
 _MVP requires **no special permissions** — no Accessibility, Screen Recording, or Notifications._
 
-## 9. Tech stack (recommended)
+## 9. Tech stack
 
 - **Swift + SwiftUI**, targeting current macOS (deployment target macOS 15.0).
 - Menu bar: `MenuBarExtra` (window style for the popover).
 - Charts: **Swift Charts** (dashboard).
-- Persistence: **SwiftData** (local store).
+- Persistence: **SwiftData** (local store; self-healing across dev schema changes).
 - Active-app events: `NSWorkspace.didActivateApplicationNotification`.
 - Idle: `CGEventSource`. Launch-at-login: `SMAppService`.
 
@@ -122,35 +122,32 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 | Milestone | Status | In one line |
 |---|---|---|
 | M1 — Skeleton | ✅ shipped | Menu-bar app, start/stop blocks, labels, live counter, SwiftData |
-| M2 — Usage tracking | ← in progress | Per-app time + % during a block + session summary |
-| M3 — Insights | planned | Dashboard window: history, trends, breakdowns, streak |
+| M2 — Usage tracking | ✅ shipped | Per-app time + % during a block + session summary |
+| M3 — Insights | ← next | Dashboard window: history, trends, breakdowns, streak |
 | M4 — Polish | planned | Settings, launch-at-login |
 
 ### M1 — Skeleton ✅ (shipped)
 - **Built:** menu-bar-only agent (`MenuBarExtra`, `LSUIElement`, `.accessory`); SwiftData models + `FocusController` (start/stop, recover open block, seed labels, 1 s tick); popover UI + status-item label with the live counter; `TimeFormat`.
 - **Verify:** builds via `xcodebuild`; launches as a menu-bar agent; start/stop a block and watch the counter.
 
-### M2 — Automatic app-usage tracking  ← in progress
+### M2 — Automatic app-usage tracking ✅ (shipped)
 - **Goal:** while a block runs, record how long you spend in each app and what % of the block that was — **no focus/distraction judgment**. You review the breakdown.
-- **Build:**
+- **Built:**
   - Active-app tracking → one `AppInterval` per frontmost-app span (bundle id, name, start, duration).
   - Idle/Away detection → time with no input becomes its own **"Away"** line, so stepping away isn't blamed on whatever app was open.
-  - Live popover: current app + running per-app tallies.
+  - Live popover: current app + running per-app tallies; the **current app is always shown** (pinned + highlighted even when it's not in the top-4).
   - End-of-block **summary**: per-app **time + %** (of active time), total active vs. away, and an **app-switch count**.
-- **Key files:**
-  - `Focus/ActivityMonitor.swift` — subscribes to `NSWorkspace.didActivateApplicationNotification`; opens/closes app spans; treats sleep/wake + screen lock as boundaries.
-  - `Focus/IdleDetector.swift` — `CGEventSource.secondsSinceLastEventType(...)` polled on a timer; routes idle time to Away.
-  - `Focus/UsageAggregator.swift` — pure `[AppInterval] (+ away) → per-app totals + %, active/away totals, switch count`.
-  - `Views/SessionSummaryView.swift`; updates to `FocusController` + `MenuBarView`.
-- **Data-model changes (from M1):** drop `FocusCategory` + `AppCategoryRule` (no categorization); `AppInterval` drops `category`; `FocusSession` drops the focused/neutral/distracted/score/nudge fields and gains `activeSeconds` + `awaySeconds`.
+  - **Self-healing SwiftData store** — resets on a schema change and falls back to in-memory rather than hard-crashing.
+- **Key files:** `Focus/ActivityMonitor.swift` (NSWorkspace app-switch spans; sleep/wake + screen-lock boundaries), `Focus/IdleDetector.swift` (`CGEventSource` idle polling → Away), `Focus/UsageAggregator.swift` (pure `[AppInterval] → per-app totals + %, active/away, switch count`), `Views/SessionSummaryView.swift`, plus updates to `FocusController` + `MenuBarView`.
+- **Data-model changes (from M1):** dropped `FocusCategory` + `AppCategoryRule`; `AppInterval` dropped `category`; `FocusSession` dropped the focused/neutral/distracted/score/nudge fields and gained `activeSeconds` + `awaySeconds`.
 - **Permissions:** none.
-- **Verify:** watch the popover per-app tallies grow as you switch apps; read the end-of-block breakdown; `UsageAggregator` is a pure function (unit-testable); optional `os_log` on each switch.
+- **Verified:** switched among apps live and watched the per-app tallies + current-app pin update; reviewed the end-of-block summary (per-app time + %, active/away, switches). `UsageAggregator` is pure and unit-testable.
 
-### M3 — Insights dashboard
+### M3 — Insights dashboard  ← next
 - **Goal:** a real window aggregating *many* sessions — history, trends, breakdowns.
 - **Build:**
   - A **Dashboard window** opened from the popover ("Open Dashboard…").
-  - Header: today's focused (active) time, # blocks, current streak.
+  - Header: today's active time, # blocks, current streak.
   - Trend chart (active minutes / day, last 7/30 days) — Swift Charts.
   - Breakdown by app and by label (bar charts).
   - Session history list (date, label, duration, active vs. away).

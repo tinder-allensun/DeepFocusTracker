@@ -131,32 +131,60 @@ struct MenuBarView: View {
 
     @ViewBuilder
     private func liveUsageList(_ usage: UsageSummary) -> some View {
+        let top = Array(usage.perApp.prefix(4))
+        let currentID = focus.currentBundleID
+        // If the app you're currently in didn't make the top-4, pin it below so
+        // the list never disagrees with the "now:" line.
+        let pinnedCurrent: AppUsage? = {
+            guard let currentID, !top.contains(where: { $0.bundleID == currentID }) else { return nil }
+            return usage.perApp.first { $0.bundleID == currentID }
+        }()
+
         VStack(alignment: .leading, spacing: 3) {
-            ForEach(Array(usage.perApp.prefix(4))) { app in
-                HStack(spacing: 8) {
-                    Text(app.appName).lineLimit(1)
-                    Spacer()
-                    Text("\(Int((usage.fraction(of: app) * 100).rounded()))%")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Text(TimeFormat.clock(app.seconds))
-                        .monospacedDigit()
-                        .frame(width: 54, alignment: .trailing)
-                }
-                .font(.caption)
+            ForEach(top) { app in
+                usageRow(app, usage: usage, isCurrent: app.bundleID == currentID)
+            }
+            if let pinnedCurrent {
+                usageRow(pinnedCurrent, usage: usage, isCurrent: true)
             }
             if usage.awaySeconds >= 1 {
-                HStack(spacing: 8) {
-                    Text("Away").foregroundStyle(.secondary)
-                    Spacer()
-                    Text(TimeFormat.clock(usage.awaySeconds))
-                        .monospacedDigit()
-                        .frame(width: 54, alignment: .trailing)
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption)
+                awayRow(usage.awaySeconds)
             }
         }
+    }
+
+    private func usageRow(_ app: AppUsage, usage: UsageSummary, isCurrent: Bool) -> some View {
+        HStack(spacing: 6) {
+            // A fixed-width dot slot keeps every row aligned; only the current
+            // app's dot is visible.
+            Circle()
+                .fill(isCurrent ? Color.green : Color.clear)
+                .frame(width: 5, height: 5)
+            Text(app.appName)
+                .lineLimit(1)
+                .fontWeight(isCurrent ? .semibold : .regular)
+            Spacer()
+            Text("\(Int((usage.fraction(of: app) * 100).rounded()))%")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            Text(TimeFormat.clock(app.seconds))
+                .monospacedDigit()
+                .frame(width: 54, alignment: .trailing)
+        }
+        .font(.caption)
+    }
+
+    private func awayRow(_ seconds: TimeInterval) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(Color.clear).frame(width: 5, height: 5)
+            Text("Away").foregroundStyle(.secondary)
+            Spacer()
+            Text(TimeFormat.clock(seconds))
+                .monospacedDigit()
+                .frame(width: 54, alignment: .trailing)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption)
     }
 
     private var footer: some View {

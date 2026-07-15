@@ -1,21 +1,27 @@
 # DeepFocusTracker
 
-A privacy-first macOS menu-bar app for doing — and measuring — deep focus work.
-Start a focus block (naming what you're working on) and DeepFocusTracker tracks
-how focused you stayed, gently nudges you when you drift, and shows where your
-focus goes over time. Everything stays local on your Mac.
+A privacy-first macOS menu-bar app for doing — and reviewing — deep focus work.
+Start a focus block (naming what you're working on) and DeepFocusTracker records
+how long you spend in each app during it — **no focus/distraction judgment** —
+so you can review where your time actually went. Everything stays local on your
+Mac.
 
 See [`SPEC.md`](SPEC.md) for the full product specification.
 
 ## Status
 
-**M1 (menu-bar skeleton) — shipped.** You can start/stop a focus block from the
-menu bar, give it a label and an optional target, and watch a live counter in
-the status bar (counts down to a target, up when there's none, `+overtime` past
-it). Sessions persist locally via SwiftData.
+**M1 & M2 shipped.**
 
-Next up: automatic app-usage measurement + focus scoring (M2), gentle nudges
-(M3), and the insights dashboard (M4).
+- **M1 — menu-bar skeleton:** start/stop a focus block from the menu bar, give it
+  a label and an optional target, and watch a live counter in the status bar
+  (counts down to a target, up when there's none, `+overtime` past it).
+- **M2 — app-usage tracking:** while a block runs, the app records time spent in
+  each frontmost app and the % of the block, with idle **Away** time detected
+  separately. Live per-app tallies appear in the popover (the current app is
+  always shown), and an end-of-block summary breaks down time + %, active vs.
+  away, and an app-switch count. It records only — you interpret.
+
+Next: **M3 — insights dashboard** (history, trends, breakdowns across sessions).
 
 ## Requirements
 
@@ -46,10 +52,11 @@ open DerivedData/Build/Products/Debug/DeepFocusTracker.app
 ```
 DeepFocusTracker.xcodeproj      Xcode project (build configuration only)
 DeepFocusTracker/               Source (file-system synchronized group)
-├── App/                        App entry point + menu-bar scene
-├── Models/                     SwiftData models + FocusCategory
-├── Focus/                      FocusController (session lifecycle, live tick)
-├── Views/                      Menu-bar popover + status-item label
+├── App/                        App entry point + menu-bar scene + SwiftData container
+├── Models/                     SwiftData models (FocusSession, AppInterval, SessionLabel)
+├── Focus/                      Session lifecycle + tracking:
+│                                 FocusController, ActivityMonitor, IdleDetector, UsageAggregator
+├── Views/                      Menu-bar popover, status-item label, session summary
 └── Support/                    Shared helpers (time formatting)
 SPEC.md                         Full MVP specification
 ```
@@ -61,4 +68,5 @@ Xcode picks them up automatically.
 ## Privacy
 
 No account, no network calls, no telemetry. All data is stored locally on your
-Mac.
+Mac, and the app makes no judgment about how you spend your time — it only
+records where it went.

@@ -27,6 +27,7 @@ final class ActivityMonitor {
     }
 
     var currentAppName: String? { awayStart == nil ? openAppName : nil }
+    var currentBundleID: String? { awayStart == nil ? openBundleID : nil }
 
     // MARK: Lifecycle
 

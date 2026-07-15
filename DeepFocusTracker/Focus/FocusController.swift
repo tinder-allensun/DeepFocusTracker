@@ -45,6 +45,7 @@ final class FocusController {
 
     /// The frontmost app right now (nil when idle/away).
     var currentAppName: String? { monitor.currentAppName }
+    var currentBundleID: String? { monitor.currentBundleID }
 
     /// Title for the menu-bar status item, or nil when idle.
     /// - Target set: counts **down** toward the target, then shows `+overtime`.
