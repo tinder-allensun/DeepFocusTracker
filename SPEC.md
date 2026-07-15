@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-14 · Status: MVP scope locked_
+_Last updated: 2026-07-14 · Status: M1 (menu-bar skeleton) shipped_
 
 ## 1. Overview
 
@@ -46,6 +46,7 @@ Start block (+ label)
 | Intervention on drift | **Gentle nudge** (soft, ignorable notification; rate-limited) |
 | Organization | **Lightweight tasks/labels** (name + color per block) |
 | Primary interface | **Menu bar + dashboard window** |
+| Menu-bar counter | **Live MM:SS** — counts down to a target (**+overtime** past it), counts up when no target is set |
 | Tracking granularity | **App-level only** (frontmost application; no window titles → no Accessibility permission) |
 | Idle handling | Idle (no input for ~2 min) is **excluded** from the score, not counted against it |
 | Breaks / Pomodoro | **Not in v1** — blocks are open-ended or single-target |
@@ -54,7 +55,7 @@ Start block (+ label)
 
 | # | Feature | Detail |
 |---|---------|--------|
-| 1 | **Menu-bar control** | Start/stop a focus block. Live timer + current status ("Focused" / "Drifting"). Optional target duration (e.g. 50 min). |
+| 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min); live focus status once tracking lands (M2). |
 | 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. |
 | 3 | **Automatic focus measurement** | While a block runs, track the frontmost app and split time into **Focus / Neutral / Distraction**. Idle time detected and excluded. |
 | 4 | **App categorization** | Sensible defaults (IDE = focus, social = distraction, etc.) + user can recategorize any app. Edits remembered globally. |
@@ -114,7 +115,7 @@ _MVP intentionally requires no Accessibility or Screen Recording permission._
 
 ## 10. Tech stack (recommended)
 
-- **Swift + SwiftUI**, targeting current macOS.
+- **Swift + SwiftUI**, targeting current macOS (deployment target macOS 15.0).
 - Menu bar: `MenuBarExtra` (window style for the popover).
 - Charts: **Swift Charts**.
 - Persistence: **SwiftData** (local store).
@@ -123,7 +124,7 @@ _MVP intentionally requires no Accessibility or Screen Recording permission._
 
 ## 11. Build milestones
 
-1. **M1 — Skeleton:** menu-bar app + start/stop block + live timer + SwiftData model.
+1. **M1 — Skeleton ✅ (shipped):** menu-bar agent app + start/stop block + labels + live menu-bar counter (countdown / count-up / overtime) + SwiftData models. Builds & launches.
 2. **M2 — Measurement:** active-app tracking + categorization + session summary.
 3. **M3 — Nudges:** drift detection + rate-limited notifications.
 4. **M4 — Insights:** dashboard window + charts (trend, by-label, by-app, streak).

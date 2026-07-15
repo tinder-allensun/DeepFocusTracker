@@ -91,12 +91,12 @@ struct MenuBarView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let elapsed = session.elapsed(asOf: context.date)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(Self.format(elapsed))
+                    Text(TimeFormat.clock(elapsed))
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                     if let target = session.targetDuration {
                         ProgressView(value: min(elapsed, target), total: target)
-                        Text("of \(Self.format(target)) target")
+                        Text("of \(TimeFormat.clock(target)) target")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -123,22 +123,11 @@ struct MenuBarView: View {
         }
     }
 
-    // MARK: Actions & helpers
+    // MARK: Actions
 
     private func startBlock() {
         let target = useTarget ? TimeInterval(targetMinutes * 60) : nil
         focus.start(label: labelText, targetDuration: target)
         labelText = ""
-    }
-
-    static func format(_ interval: TimeInterval) -> String {
-        let total = max(0, Int(interval.rounded()))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let seconds = total % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%02d:%02d", minutes, seconds)
     }
 }

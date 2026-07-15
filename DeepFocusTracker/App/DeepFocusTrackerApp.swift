@@ -32,7 +32,7 @@ struct DeepFocusTrackerApp: App {
                 .environment(focus)
                 .modelContainer(container)
         } label: {
-            Image(systemName: "brain.head.profile")
+            MenuBarLabel(focus: focus)
         }
         .menuBarExtraStyle(.window)
     }
