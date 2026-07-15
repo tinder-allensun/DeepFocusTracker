@@ -33,16 +33,21 @@ struct DeepFocusTrackerApp: App {
         .windowResizability(.contentMinSize)
     }
 
-    /// Builds the local SwiftData store. If it can't be opened — e.g. after a
-    /// schema change during development — the store is reset once and recreated.
-    /// Replace with a real migration plan before there's data worth preserving.
+    /// Builds the local SwiftData store at an app-specific path so no other app
+    /// can collide on SwiftData's generic default
+    /// (`~/Library/Application Support/default.store`). If it can't be opened —
+    /// e.g. after a schema change during development — the store is reset once
+    /// and recreated. Replace the reset with a real migration plan before
+    /// there's data worth preserving.
     private static func makeContainer() -> ModelContainer {
         let schema = Schema([
             FocusSession.self,
             AppInterval.self,
             SessionLabel.self,
         ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        let storeURL = appStoreURL()
+        let configuration = ModelConfiguration(schema: schema, url: storeURL)
 
         // 1) Try the on-disk store.
         if let container = try? ModelContainer(for: schema, configurations: configuration) {
@@ -52,7 +57,7 @@ struct DeepFocusTrackerApp: App {
         // 2) Couldn't open it — most likely a schema change during development.
         //    Reset the store once and retry. (Replace with a real migration plan
         //    before there's data worth preserving.)
-        let base = configuration.url.path()
+        let base = storeURL.path()
         for path in [base, base + "-wal", base + "-shm"] {
             try? FileManager.default.removeItem(atPath: path)
         }
@@ -68,6 +73,14 @@ struct DeepFocusTrackerApp: App {
             return container
         }
         fatalError("DeepFocusTracker could not create any model container.")
+    }
+
+    /// App-specific store location:
+    /// `~/Library/Application Support/DeepFocusTracker/Focus.store`.
+    private static func appStoreURL() -> URL {
+        URL.applicationSupportDirectory
+            .appending(path: "DeepFocusTracker", directoryHint: .isDirectory)
+            .appending(path: "Focus.store")
     }
 }
 
