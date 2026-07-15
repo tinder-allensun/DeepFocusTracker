@@ -31,6 +31,9 @@ Package.resolved
 *.mobileprovision
 *.p12
 
+# Packaging output (scripts/package.sh)
+dist/
+
 # Editor / tooling
 .idea/
 *.swp

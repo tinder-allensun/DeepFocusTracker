@@ -8,6 +8,9 @@ tagged release; loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - **M4 — Polish** (planned): a Settings window (default block length, idle
   timeout), launch-at-login via `SMAppService`, a `SettingsStore`, and small
   niceties (menu-bar template icon, empty states, About).
+- **Packaging:** `scripts/package.sh` (Release build → installable / shareable
+  zip) plus [PACKAGING.md](PACKAGING.md) covering the distribution options
+  (ad-hoc, Developer ID + notarization, App Store).
 
 ## M3 — Insights dashboard — 2026-07-14
 

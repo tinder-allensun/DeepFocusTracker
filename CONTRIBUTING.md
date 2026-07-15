@@ -48,6 +48,18 @@ and they're picked up automatically; **no `project.pbxproj` editing.**
   run the app and drive the change (start a block, switch apps, open the
   dashboard).
 
+## Packaging
+
+To build a Release copy, install it locally, or produce a shareable zip:
+
+```bash
+scripts/package.sh --install    # Release build → /Applications
+scripts/package.sh              # Release build → dist/DeepFocusTracker-<version>.zip
+```
+
+Full distribution guide — ad-hoc vs. Developer ID + notarization, Gatekeeper, and
+what a recipient must do to open a shared build: [PACKAGING.md](PACKAGING.md).
+
 ## Gotchas
 
 The traps already hit — SwiftData migration defaults, menu-bar label rendering,

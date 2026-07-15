@@ -45,6 +45,9 @@ open DerivedData/Build/Products/Debug/DeepFocusTracker.app
   (start a block, switch apps, open the dashboard). Pure logic can be reasoned
   about / unit-tested directly.
 
+Ship a Release build (install locally or make a shareable zip) with
+`scripts/package.sh` — see [PACKAGING.md](PACKAGING.md).
+
 ## Project layout
 
 `DeepFocusTracker/` → `App/`, `Models/`, `Focus/`, `Insights/`, `Views/`,

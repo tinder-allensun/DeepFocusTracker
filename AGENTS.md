@@ -8,3 +8,4 @@ Related docs:
 - **[SPEC.md](SPEC.md)** — product scope, decisions, and milestone roadmap.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — modules, data flow, and design rationale.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — contributor workflow.
+- **[PACKAGING.md](PACKAGING.md)** — building, signing, and distributing the app.

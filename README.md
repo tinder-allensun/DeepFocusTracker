@@ -12,6 +12,7 @@ Mac.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — modules, data flow, and design rationale.
 - **[CLAUDE.md](CLAUDE.md)** — working guide for coding agents / contributors (build, conventions, gotchas); [AGENTS.md](AGENTS.md) points here.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — setup, build, and contribution workflow.
+- **[PACKAGING.md](PACKAGING.md)** — building a shareable/installable app, signing, and distribution options.
 - **[CHANGELOG.md](CHANGELOG.md)** — milestone history.
 
 ## Status
@@ -57,6 +58,19 @@ xcodebuild -project DeepFocusTracker.xcodeproj -scheme DeepFocusTracker \
   -configuration Debug -derivedDataPath DerivedData build
 open DerivedData/Build/Products/Debug/DeepFocusTracker.app
 ```
+
+### Install it / share it
+
+To build a Release copy — install it into `/Applications`, or produce a
+shareable zip:
+
+```bash
+scripts/package.sh --install    # Release build + copy to /Applications
+scripts/package.sh              # Release build + dist/DeepFocusTracker-<version>.zip
+```
+
+See [PACKAGING.md](PACKAGING.md) for the full story — ad-hoc vs. notarized,
+Gatekeeper, and what a recipient has to do to open a shared copy.
 
 ## Project structure
 
