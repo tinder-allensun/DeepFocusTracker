@@ -75,5 +75,6 @@ those areas.
 - Keep docs current **in the same change**: [SPEC.md](SPEC.md) status/roadmap,
   [CHANGELOG.md](CHANGELOG.md), and [ARCHITECTURE.md](ARCHITECTURE.md) when the
   design changes.
-- No remote is configured; if you add one, make it **private** (the commit hook
-  will remind you).
+- A remote (`origin`) now exists; the commit hook flags it as **public**, so
+  confirm the repo's visibility is intended (this project is meant to be private)
+  before pushing.

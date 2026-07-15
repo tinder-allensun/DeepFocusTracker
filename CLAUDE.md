@@ -78,8 +78,10 @@ files in that folder and Xcode picks them up — **no `project.pbxproj` editing.
 - **Store reset during dev:** the store lives at
   `~/Library/Application Support/default.store`. If you change the schema and hit
   a migration wall, delete `default.store*` there (the container also self-heals).
-- **Git hook:** commits print a *"public repository"* warning (a corporate hook).
-  There's no remote yet; if you add one, make it **private**.
+- **Git hook:** commits print a *"public repository"* warning (a corporate JAMF
+  hook). A remote now exists (`origin` →
+  `github.com:tinder-allensun/DeepFocusTracker`); the hook flags it as **public**,
+  so confirm that's intended before pushing — this project is meant to be private.
 
 ## Commit conventions
 
