@@ -121,8 +121,11 @@ DashboardView
 
 ## Persistence & migration
 
-- **Store:** a local SwiftData/SQLite store, by default at
-  `~/Library/Application Support/default.store` (+ `-wal` / `-shm`). No CloudKit.
+- **Store:** a local SwiftData/SQLite store at an explicit app-specific path,
+  `~/Library/Application Support/DeepFocusTracker/Focus.store` (+ `-wal` / `-shm`).
+  The explicit `url:` avoids SwiftData's generic default (`…/default.store`),
+  which is unnamespaced and could collide with another non-sandboxed SwiftData
+  app. No CloudKit.
 - **Container factory** (`DeepFocusTrackerApp.makeContainer()`) is *self-healing*:
   1. try to open the on-disk store;
   2. if that fails (e.g. an incompatible schema during development), delete the

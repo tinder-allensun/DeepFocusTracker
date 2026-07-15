@@ -76,8 +76,10 @@ files in that folder and Xcode picks them up — **no `project.pbxproj` editing.
 - **Timers:** add to `RunLoop.main` in `.common` mode and use
   `MainActor.assumeIsolated { … }` inside the closure.
 - **Store reset during dev:** the store lives at
-  `~/Library/Application Support/default.store`. If you change the schema and hit
-  a migration wall, delete `default.store*` there (the container also self-heals).
+  `~/Library/Application Support/DeepFocusTracker/Focus.store` (an explicit
+  app-specific path, not SwiftData's generic `default.store`). If you change the
+  schema and hit a migration wall, delete `Focus.store*` there (the container
+  also self-heals).
 - **Git hook:** commits print a *"public repository"* warning (a corporate JAMF
   hook). A remote now exists (`origin` →
   `github.com:tinder-allensun/DeepFocusTracker`); the hook flags it as **public**,
