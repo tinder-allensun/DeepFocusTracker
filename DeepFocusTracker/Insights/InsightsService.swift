@@ -1,6 +1,7 @@
 import Foundation
 
-/// A completed focus block, as a plain value for aggregation.
+/// A completed block's label + active time, for the by-label rollup. Kept as a
+/// plain value so aggregation stays free of SwiftUI/SwiftData.
 struct SessionRecord {
     let start: Date
     let end: Date
@@ -8,6 +9,22 @@ struct SessionRecord {
     let activeSeconds: TimeInterval
     let awaySeconds: TimeInterval
     var duration: TimeInterval { end.timeIntervalSince(start) }
+}
+
+/// A day's rolled-up totals (value form of `DayRollup`).
+struct DayStat {
+    let day: Date
+    let activeSeconds: TimeInterval
+    let awaySeconds: TimeInterval
+    let blockCount: Int
+}
+
+/// A day's per-app rolled-up active seconds (value form of `DayAppRollup`).
+struct AppDayStat {
+    let day: Date
+    let bundleID: String
+    let appName: String
+    let seconds: TimeInterval
 }
 
 /// Active time on a single day (for the trend chart).
@@ -42,12 +59,15 @@ struct Insights {
     )
 }
 
-/// Pure aggregation of stored history into dashboard figures. No side effects;
-/// deterministic given its inputs (`now` / `calendar` are injected).
+/// Pure aggregation of the denormalized daily rollups (plus windowed sessions for
+/// the by-label view) into dashboard figures. Reads O(days) rollup rows rather
+/// than scanning every session / interval; deterministic given its inputs
+/// (`now` / `calendar` are injected).
 enum InsightsService {
     static func compute(
+        days: [DayStat],
+        appDays: [AppDayStat],
         sessions: [SessionRecord],
-        appSpans: [AppSpan],
         now: Date = .now,
         calendar: Calendar = .current,
         trailingDays: Int = 14
@@ -56,27 +76,29 @@ enum InsightsService {
         let windowStart = calendar.date(byAdding: .day, value: -(trailingDays - 1), to: today) ?? today
 
         // Today
-        let todaySessions = sessions.filter { calendar.isDate($0.start, inSameDayAs: now) }
-        let todayActive = todaySessions.reduce(0) { $0 + $1.activeSeconds }
+        let todayStat = days.first { calendar.isDate($0.day, inSameDayAs: now) }
+        let todayActive = todayStat?.activeSeconds ?? 0
+        let todayBlocks = todayStat?.blockCount ?? 0
 
         // Window
-        let windowSessions = sessions.filter { $0.start >= windowStart }
-        let windowActive = windowSessions.reduce(0) { $0 + $1.activeSeconds }
+        let windowDays = days.filter { $0.day >= windowStart }
+        let windowActive = windowDays.reduce(0) { $0 + $1.activeSeconds }
+        let windowBlocks = windowDays.reduce(0) { $0 + $1.blockCount }
 
-        // Daily buckets
-        var buckets: [Date: TimeInterval] = [:]
-        for session in windowSessions {
-            buckets[calendar.startOfDay(for: session.start), default: 0] += session.activeSeconds
+        // Daily buckets (one entry per day in the window, oldest → newest)
+        var byDay: [Date: TimeInterval] = [:]
+        for day in windowDays {
+            byDay[calendar.startOfDay(for: day.day), default: 0] += day.activeSeconds
         }
         var daily: [DayActive] = []
         for offset in stride(from: trailingDays - 1, through: 0, by: -1) {
-            let day = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
-            daily.append(DayActive(date: day, seconds: buckets[day] ?? 0))
+            let date = calendar.date(byAdding: .day, value: -offset, to: today) ?? today
+            daily.append(DayActive(date: date, seconds: byDay[date] ?? 0))
         }
 
         // Current streak: consecutive days (ending today, or yesterday if today
         // is empty) that have at least one block.
-        let daysWithBlocks = Set(sessions.map { calendar.startOfDay(for: $0.start) })
+        let daysWithBlocks = Set(days.filter { $0.blockCount > 0 }.map { calendar.startOfDay(for: $0.day) })
         var streak = 0
         var cursor = daysWithBlocks.contains(today)
             ? today
@@ -87,16 +109,24 @@ enum InsightsService {
             cursor = previous
         }
 
-        // Per-app: reuse the block-level aggregator over the window's spans.
-        let windowSpans = appSpans.filter { $0.start >= windowStart }
+        // Per-app (window): sum the per-day-per-app rollups by bundle.
+        let windowApps = appDays.filter { $0.day >= windowStart }
+        var appTotals: [String: (name: String, seconds: TimeInterval)] = [:]
+        for app in windowApps {
+            let running = appTotals[app.bundleID]?.seconds ?? 0
+            appTotals[app.bundleID] = (app.appName, running + app.seconds)
+        }
         let byApp = Array(
-            UsageAggregator.summarize(spans: windowSpans, awaySeconds: 0, switchCount: 0).perApp.prefix(8)
+            appTotals
+                .map { AppUsage(bundleID: $0.key, appName: $0.value.name, seconds: $0.value.seconds) }
+                .sorted { $0.seconds > $1.seconds }
+                .prefix(8)
         )
 
-        // Per-label
+        // Per-label (window): from the windowed session rows.
         var labelSeconds: [String: TimeInterval] = [:]
         var labelBlocks: [String: Int] = [:]
-        for session in windowSessions {
+        for session in sessions where session.start >= windowStart {
             labelSeconds[session.label, default: 0] += session.activeSeconds
             labelBlocks[session.label, default: 0] += 1
         }
@@ -106,10 +136,10 @@ enum InsightsService {
 
         return Insights(
             todayActive: todayActive,
-            todayBlocks: todaySessions.count,
+            todayBlocks: todayBlocks,
             streakDays: streak,
             windowActive: windowActive,
-            windowBlocks: windowSessions.count,
+            windowBlocks: windowBlocks,
             daily: daily,
             byApp: byApp,
             byLabel: byLabel

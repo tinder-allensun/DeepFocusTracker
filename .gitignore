@@ -40,3 +40,6 @@ dist/
 
 # Claude Code scratch (session-local, never committed)
 scratchpad/
+
+# Generated-document scratchpad (plans, notes) — see CLAUDE.md
+tmp/

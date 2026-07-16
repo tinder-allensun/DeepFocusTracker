@@ -15,7 +15,23 @@ enum SessionHistory {
         let descriptor = FetchDescriptor<AppInterval>(
             predicate: #Predicate { $0.sessionID == id }
         )
-        for interval in (try? context.fetch(descriptor)) ?? [] {
+        let intervals = (try? context.fetch(descriptor)) ?? []
+
+        // Keep the daily rollups consistent: subtract this block's contribution
+        // before removing the interval rows it was derived from.
+        let spans = intervals.map {
+            AppSpan(bundleID: $0.appBundleID, appName: $0.appName, start: $0.start, duration: $0.duration)
+        }
+        let perApp = UsageAggregator.summarize(spans: spans, awaySeconds: 0, switchCount: 0).perApp
+        Rollups.remove(
+            day: session.start,
+            activeSeconds: session.activeSeconds,
+            awaySeconds: session.awaySeconds,
+            perApp: perApp,
+            in: context
+        )
+
+        for interval in intervals {
             context.delete(interval)
         }
         context.delete(session)

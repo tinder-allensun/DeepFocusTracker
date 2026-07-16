@@ -35,12 +35,13 @@ Source lives in `DeepFocusTracker/` (a file-system **synchronized group** — se
 
 ## Data model
 
-Three SwiftData entities. Note that `AppInterval` links to its session by a
-plain `UUID` (`sessionID`), **not** a SwiftData relationship — intervals are
-written in a batch when a block ends, and the dashboard joins them in memory.
-Because there's no relationship, there's also **no cascade delete**: removing a
-session must explicitly delete its intervals too (see `SessionHistory.delete`),
-or they orphan and keep skewing dashboard aggregates.
+Five SwiftData entities: the three core records below, plus two denormalized
+**daily rollups** (`DayRollup`, `DayAppRollup`) that keep the dashboard fast at
+scale (see [Scalability & rollups](#scalability--rollups)). `AppInterval` links to
+its session by a plain `UUID` (`sessionID`), **not** a SwiftData relationship —
+intervals are written in a batch when a block ends. Because there's no
+relationship, there's also **no cascade delete**: removing a session must
+explicitly delete its intervals too (see `SessionHistory.delete`), or they orphan.
 
 ```
 FocusSession                         AppInterval
@@ -54,12 +55,17 @@ FocusSession                         AppInterval
 └─ switchCount:   Int = 0
 
 SessionLabel:  name (unique), colorHex, createdAt   // reusable block labels
+
+DayRollup:     day (unique), activeSeconds, awaySeconds, blockCount
+DayAppRollup:  day, bundleID, appName, seconds       // unique (day, bundleID)
 ```
 
 `activeSeconds` / `awaySeconds` / `switchCount` are **cached totals** written when
 a block ends (the authoritative per-app detail is the `AppInterval` rows). They
 carry inline defaults (`= 0`) so SwiftData lightweight migration can populate
-existing rows — see [Persistence & migration](#persistence--migration).
+existing rows — see [Persistence & migration](#persistence--migration). At the same
+moment the block's totals are folded into that day's rollups (and subtracted again
+on delete) — see [Scalability & rollups](#scalability--rollups).
 
 ## Runtime data flow
 
@@ -90,7 +96,9 @@ User clicks End (MenuBarView)
 FocusController.stop()
       ├─ ActivityMonitor.stop() → (spans, awaySeconds, switchCount)
       ├─ persist one AppInterval per span
-      ├─ cache activeSeconds / awaySeconds on the FocusSession, save
+      ├─ cache activeSeconds / awaySeconds / switchCount on the FocusSession
+      ├─ Rollups.add(...) → fold the block into DayRollup / DayAppRollup
+      ├─ save
       └─ expose lastSummary → SessionSummaryView (end-of-block breakdown)
 ```
 
@@ -102,8 +110,9 @@ the block ends. See [Known limitations](#known-limitations--future).
 
 ```
 DashboardView (wrapped in a NavigationStack)
-  ├─ @Query FocusSession (completed) + @Query AppInterval
-  ├─ map → [SessionRecord] + [AppSpan]
+  ├─ @Query DayRollup + DayAppRollup (small, O(days)) + windowed & recent FocusSession
+  │     — NOT AppInterval: the interval table is never loaded here
+  ├─ map → [DayStat] + [AppDayStat] + [SessionRecord]
   ├─ InsightsService.compute(...) → Insights { today, streak, daily[], byApp[], byLabel[] }
   ├─ render: tiles + Swift Charts trend + top-apps chart + by-label + recent list
   └─ drill-in: recent list / AllSessionsView → SessionDetailView
@@ -115,7 +124,36 @@ re-runs `UsageAggregator.summarize` over just that block's `AppInterval` rows
 (scoped `@Query` on `sessionID`), feeding the cached `awaySeconds` / `switchCount`
 totals, and shows the same numbers the end-of-block summary does — just for a
 historical block, with no per-app cap. Deleting routes through
-`SessionHistory.delete` (session + its intervals) behind a confirmation.
+`SessionHistory.delete` (session + its intervals, and it decrements that day's
+rollups) behind a confirmation.
+
+## Scalability & rollups
+
+The dashboard must stay fast with tens of thousands of sessions / hundreds of
+thousands of intervals. It does, because it **never loads the full `AppInterval`
+table** — the per-app chart reads a small denormalized rollup instead, and its
+session reads are windowed/limited and indexed.
+
+- `DayRollup` — one row per active day (`activeSeconds` / `awaySeconds` /
+  `blockCount`). Powers the tiles, trend, and streak. O(days) — a few hundred rows
+  even after years.
+- `DayAppRollup` — one row per (day, app) (`seconds`). Powers the top-apps chart.
+
+Both are maintained incrementally: `Rollups.add` folds a block in at
+`FocusController.stop()`; `Rollups.remove` subtracts it in `SessionHistory.delete`.
+Keeping them consistent on **both** paths is essential — the dashboard trusts the
+rollups, not the raw rows. (Upserts must *accumulate*, and `#Unique`'s collision
+behavior *replaces*, so `Rollups` fetch-or-creates and adds by hand.)
+
+`#Index`es on `FocusSession.start`/`.end`, `AppInterval.(sessionID, start)`, and
+the rollups' `day` keep every query off table scans. Because the working set is
+small, all of it stays on the **main thread** — no background `@ModelActor`
+needed; that would only matter for genuinely heavy work, which the rollups
+eliminate.
+
+**Dev benchmark:** launch the debug binary with `SEED_TEST_DATA=<n>` to populate a
+fresh store with *n* synthetic sessions + intervals + rollups (`TestDataSeeder`),
+to confirm the dashboard stays flat as the raw tables grow.
 
 ## Concurrency & state
 

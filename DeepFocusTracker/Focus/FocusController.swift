@@ -105,6 +105,13 @@ final class FocusController {
         session.activeSeconds = summary.activeSeconds
         session.awaySeconds = summary.awaySeconds
         session.switchCount = summary.switchCount
+        Rollups.add(
+            day: session.start,
+            activeSeconds: summary.activeSeconds,
+            awaySeconds: summary.awaySeconds,
+            perApp: summary.perApp,
+            in: context
+        )
         try? context.save()
 
         lastFinishedSession = session
@@ -138,11 +145,12 @@ final class FocusController {
     // MARK: - Setup helpers
 
     private static func fetchOpenSession(in context: ModelContext) -> FocusSession? {
-        let descriptor = FetchDescriptor<FocusSession>(
+        var descriptor = FetchDescriptor<FocusSession>(
+            predicate: #Predicate { $0.end == nil },
             sortBy: [SortDescriptor(\.start, order: .reverse)]
         )
-        let sessions = (try? context.fetch(descriptor)) ?? []
-        return sessions.first { $0.end == nil }
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
     }
 
     private static func seedDefaultLabelsIfNeeded(in context: ModelContext) {

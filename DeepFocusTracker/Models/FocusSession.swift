@@ -6,6 +6,10 @@ import SwiftData
 /// dashboard rollups later.
 @Model
 final class FocusSession {
+    // Indexes: `start` for date-windowed / sorted dashboard queries, `end` for
+    // the open-session lookup (`end == nil`).
+    #Index<FocusSession>([\.start], [\.end])
+
     var id: UUID
     var label: String
     var start: Date
