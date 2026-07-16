@@ -67,6 +67,89 @@ existing rows — see [Persistence & migration](#persistence--migration). At the
 moment the block's totals are folded into that day's rollups (and subtracted again
 on delete) — see [Scalability & rollups](#scalability--rollups).
 
+## Units, storage & the formatting boundary
+
+DeepFocusTracker keeps **one base unit end-to-end and attaches human-readable
+units only at the view**. Durations are stored, aggregated, and computed as raw
+**seconds**; the reader-facing unit (`s` / `m` / `h`, or `MM:SS`) is applied at
+render time and is *never* persisted. This keeps the arithmetic correct and the
+store freely reformattable.
+
+### What the store actually holds
+
+The SwiftData/SQLite columns are plain numbers — there is **no "unit" column**.
+The unit is a *convention*, carried two ways: the `TimeInterval` type (Foundation
+documents it as a count of seconds) and the field names (`…Seconds`).
+
+| Field | Type | De facto unit |
+|---|---|---|
+| `FocusSession.activeSeconds` / `awaySeconds` | `TimeInterval` | seconds |
+| `FocusSession.targetDuration` | `TimeInterval?` | seconds |
+| `AppInterval.duration` | `TimeInterval` | seconds |
+| `DayRollup.activeSeconds` / `awaySeconds` | `TimeInterval` | seconds |
+| `DayAppRollup.seconds` | `TimeInterval` | seconds |
+| `FocusSession.switchCount`, `DayRollup.blockCount` | `Int` | a count (dimensionless) |
+| `FocusSession.start` / `end`, `DayRollup.day` | `Date` | an instant (not a duration) |
+
+`start` / `end` are *instants*; a duration is their difference
+(`end.timeIntervalSince(start)`) which — being a `TimeInterval` — is also seconds.
+So storage and every calculation speak one language.
+
+> **Guardrail:** because the unit isn't stored, the type + `…Seconds` naming *is*
+> the contract. Writing minutes into an `activeSeconds` field would compile and
+> persist happily, and everything downstream would be silently 60× off. Keep new
+> duration fields typed `TimeInterval`, named for their unit, and written in
+> seconds.
+
+### The pipeline: seconds in, string out
+
+```
+SwiftData store          aggregation (pure)          view (SwiftUI)
+activeSeconds = 1547  →  InsightsService /        →  TimeFormat.compact(1547)
+(a Double)               UsageAggregator sum         → "25m"  (transient, unsaved)
+                         = still seconds
+```
+
+- **Storage** — raw seconds.
+- **Aggregation** — `UsageAggregator`, `InsightsService`, `Rollups` take seconds
+  and return seconds (sums, per-app totals, streaks). No strings, no units — which
+  is *why* they stay free of SwiftUI/SwiftData and unit-testable.
+- **View** — the only layer that attaches a unit, via `TimeFormat`. The formatted
+  string lives for one render and is recomputed on the next tick.
+
+You sum **numbers, not strings**: `1500 + 3900 = 5400 → "1h 30m"`. Formatting last
+is what lets totals, percentages, and reformats (localizing, a seconds-precision
+toggle, …) happen without touching stored data or a migration.
+
+### Formatters and when to use them (`Support/TimeFormat.swift`)
+
+| Formatter | Output | Use for |
+|---|---|---|
+| `clock` | `MM:SS` / `H:MM:SS` | the **live, ticking** menu-bar timer and running-block popover *only* |
+| `compact` | `45s` / `25m` / `1h 20m` | every **reviewed / aggregate** total — dashboard tiles, lists, by-label, session detail, end-of-block summary |
+
+`compact` is *self-labeling* (the unit is in the string) and rounds to a sensible
+granularity (seconds under a minute, whole minutes above), so an aggregate can't
+be misread as a stopwatch. `clock` is precise-to-the-second and ticks — right for
+a live counter, wrong for a 14-day total.
+
+### Two values derived at read time (also presentation, not storage)
+
+- **Per-app %** is not stored; it's `app.seconds ÷ activeSeconds` computed in
+  `UsageSummary.fraction(of:)` — a fraction of *active* time (Away excluded).
+- **Chart axes** plot the raw number — the top-apps `BarMark` uses
+  `x: .value("Focus time", app.seconds)` — and only the **axis tick labels** run
+  through `TimeFormat.compact`. The bars come from the data; the unit is painted
+  onto the labels, the same boundary as everywhere else.
+
+### Adding a new metric — the rule of thumb
+
+1. **Store** it in its base unit, typed and named for that unit
+   (`somethingSeconds: TimeInterval`, a `count: Int`, …).
+2. **Aggregate** in that base unit, inside the pure services.
+3. **Format** only in the view; add a `TimeFormat` helper for any new shape rather
+   than hand-formatting inline.
+
 ## Runtime data flow
 
 ### A focus block, start → finish

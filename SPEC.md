@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-15 · Status: M1–M3 shipped (+ session detail & history management); M4 (polish) next_
+_Last updated: 2026-07-16 · Status: M1–M3 shipped (+ session detail, history management, in-app guide & readable durations); M4 (polish) next_
 
 ## 1. Overview
 
@@ -63,6 +63,7 @@ Start block (+ label)
 | 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. Click any block for its **full per-app detail** (time + %, active/away/switches), browse the complete **All Sessions** history, and **delete** blocks you don't want to keep. |
 | 6 | **Settings** | Default block length, idle timeout, launch-at-login. |
 | 7 | **Local & private** | No account, no network calls, no telemetry. Data in a local store on the Mac. |
+| 8 | **In-app guide** | A "How to use" page (opened from a **?** in the popover header or the dashboard toolbar): how tracking works, a glossary of every metric with **how each is calculated**, and the privacy note. Durations read as compact, self-labeling values (`25m`, `1h 20m`). |
 
 ## 5. Out of scope (candidates for later)
 
@@ -131,6 +132,7 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 | M2 — Usage tracking | ✅ shipped | Per-app time + % during a block + session summary |
 | M3 — Insights | ✅ shipped | Dashboard window: tiles, trend, breakdowns, recent history |
 | M3.1 — Session history | ✅ shipped | Click into any block for full detail; browse All Sessions; delete blocks |
+| M3.2 — Guide & readable durations | ✅ shipped | In-app "How to use" guide; compact, self-labeling durations across the dashboard |
 | M4 — Polish | ← next | Settings, launch-at-login |
 
 ### M1 — Skeleton ✅ (shipped)
@@ -167,6 +169,15 @@ Roadmap (details below). Every milestone ships something you can *see* working �
   - Persisted `FocusSession.switchCount` (inline default `= 0`) so switches show for historical blocks; not surfaced in any cross-session aggregate.
 - **Key files:** `Views/Dashboard/SessionDetailView.swift`, `Views/Dashboard/AllSessionsView.swift`, `Focus/SessionHistory.swift` (shared delete), plus `NavigationStack` wiring in `DashboardView`.
 - **Verified:** clean lightweight migration of the new attribute against the real on-disk store (no data loss); build + launch clean.
+
+### M3.2 — In-app guide & readable durations ✅ (shipped 2026-07-16)
+- **Goal:** help the user understand *what* the app measures, and make the numbers read clearly.
+- **Built:**
+  - An in-app **"How to use" guide** (`Views/Dashboard/GuideView.swift`) pushed in the dashboard `NavigationStack`, reached from a **?** in the popover header or the dashboard toolbar: how tracking works, a glossary of every metric (Active, Away, Switches, per-app %, Target, Streak) with **how each is calculated**, and the local-and-private note.
+  - A one-shot `DashboardNavigator` so the popover deep-links deterministically — **Dashboard → overview, ? → guide** — resetting the stack on close (fixes reopening onto a stale pushed screen).
+  - `TimeFormat.compact` — self-labeling durations (`45s`, `25m`, `1h 20m`) applied to every aggregate/reviewed total (tiles, lists, by-label, session detail, end-of-block summary) and the top-apps chart axis; `clock` (MM:SS) is now reserved for the live menu-bar timer.
+- **Docs:** ARCHITECTURE.md gained a **"Units, storage & the formatting boundary"** section — seconds in the store, units attached only at the view.
+- **Verified:** `TimeFormat.compact` unit-checked across boundaries; build + launch clean.
 
 ### M4 — Polish (settings, launch-at-login)  ← next
 - **Goal:** make it configurable and a good daily citizen.

@@ -64,6 +64,10 @@ tree.
 - Swift + SwiftUI; match the surrounding style, naming, and comment density.
 - UI runs on the main actor; shared state uses `@Observable` (Observation).
 - Keep pure logic (aggregation, formatting) free of SwiftUI/SwiftData imports.
+- **Units:** store and aggregate durations in **seconds** (`TimeInterval`); attach
+  human units only in the view via `TimeFormat` — `clock` (MM:SS) for the live
+  menu-bar timer, `compact` (`25m`, `1h 20m`) for aggregate totals. See
+  ARCHITECTURE.md [Units, storage & the formatting boundary](ARCHITECTURE.md#units-storage--the-formatting-boundary).
 - Comments explain *why*, not *what*; keep them where a future reader would trip.
 
 ## Gotchas (learned the hard way)

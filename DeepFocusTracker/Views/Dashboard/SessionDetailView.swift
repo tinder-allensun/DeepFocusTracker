@@ -88,7 +88,7 @@ struct SessionDetailView: View {
             Text(session.label).font(.title2).bold().lineLimit(2)
             Text(dateRangeText).font(.callout).foregroundStyle(.secondary)
             if let target = session.targetDuration {
-                Text("Target \(TimeFormat.clock(target))")
+                Text("Target \(TimeFormat.compact(target))")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -96,9 +96,9 @@ struct SessionDetailView: View {
 
     private var statsRow: some View {
         HStack(alignment: .top) {
-            stat("Active", TimeFormat.clock(summary.activeSeconds))
+            stat("Active", TimeFormat.compact(summary.activeSeconds))
             Spacer()
-            stat("Away", TimeFormat.clock(summary.awaySeconds))
+            stat("Away", TimeFormat.compact(summary.awaySeconds))
             Spacer()
             stat("Switches", "\(summary.switchCount)")
         }
@@ -121,7 +121,7 @@ struct SessionDetailView: View {
                         Text("\(percent(app))%")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
-                        Text(TimeFormat.clock(app.seconds))
+                        Text(TimeFormat.compact(app.seconds))
                             .monospacedDigit()
                             .frame(width: 62, alignment: .trailing)
                     }
@@ -151,7 +151,7 @@ struct SessionDetailView: View {
             return "\(day) · started \(startTime)"
         }
         let endTime = end.formatted(date: .omitted, time: .shortened)
-        return "\(day) · \(startTime) – \(endTime) · \(TimeFormat.clock(session.elapsed()))"
+        return "\(day) · \(startTime) – \(endTime) · \(TimeFormat.compact(session.elapsed()))"
     }
 
     private func percent(_ app: AppUsage) -> Int {
