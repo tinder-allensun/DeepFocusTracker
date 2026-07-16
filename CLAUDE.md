@@ -55,6 +55,10 @@ Ship a Release build (install locally or make a shareable zip) with
 The project uses **file-system synchronized groups**: add or remove `.swift`
 files in that folder and Xcode picks them up — **no `project.pbxproj` editing.**
 
+`tmp/` at the repo root is a **git-ignored scratchpad** for generated documents
+(plans, notes, throwaway analysis) — write those there, never into the tracked
+tree.
+
 ## Conventions
 
 - Swift + SwiftUI; match the surrounding style, naming, and comment density.
@@ -91,10 +95,17 @@ files in that folder and Xcode picks them up — **no `project.pbxproj` editing.
   app-specific path, not SwiftData's generic `default.store`). If you change the
   schema and hit a migration wall, delete `Focus.store*` there (the container
   also self-heals).
+- **Rollups back the dashboard — keep them consistent:** the dashboard's
+  tiles / trend / streak / top-apps read `DayRollup` / `DayAppRollup`, *not* the
+  raw tables. `Rollups.add` maintains them at `FocusController.stop()`;
+  `Rollups.remove` decrements them in `SessionHistory.delete`. Any new path that
+  creates or removes sessions/intervals must update the rollups too, or the
+  dashboard drifts. Dev: launch with `SEED_TEST_DATA=<n>` to seed a fresh store
+  (`TestDataSeeder`).
 - **Git hook:** commits print a *"public repository"* warning (a corporate JAMF
-  hook). A remote now exists (`origin` →
-  `github.com:tinder-allensun/DeepFocusTracker`); the hook flags it as **public**,
-  so confirm that's intended before pushing — this project is meant to be private.
+  hook). This is expected and safe to ignore: the repo (`origin` →
+  `github.com:tinder-allensun/DeepFocusTracker`) is **intentionally public**, so
+  pushing there is fine.
 
 ## Commit conventions
 

@@ -21,10 +21,27 @@ enum DashboardWindow {
 
 /// Aggregated view of your focus history across sessions.
 struct DashboardView: View {
-    @Query(sort: \FocusSession.start, order: .reverse) private var sessions: [FocusSession]
-    @Query private var intervals: [AppInterval]
+    @Query(sort: \DayRollup.day) private var dayRollups: [DayRollup]
+    @Query private var appRollups: [DayAppRollup]
+    /// Windowed completed sessions — only needed for the by-label rollup.
+    @Query private var windowSessions: [FocusSession]
+    /// The latest handful of completed blocks for the "Recent" list.
+    @Query private var recentSessions: [FocusSession]
 
-    private var completed: [FocusSession] { sessions.filter { $0.end != nil } }
+    init(now: Date = .now, calendar: Calendar = .current) {
+        let today = calendar.startOfDay(for: now)
+        let windowStart = calendar.date(byAdding: .day, value: -13, to: today) ?? today
+        _windowSessions = Query(
+            filter: #Predicate<FocusSession> { $0.end != nil && $0.start >= windowStart },
+            sort: \.start, order: .reverse
+        )
+        var recent = FetchDescriptor<FocusSession>(
+            predicate: #Predicate { $0.end != nil },
+            sortBy: [SortDescriptor(\.start, order: .reverse)]
+        )
+        recent.fetchLimit = 15
+        _recentSessions = Query(recent)
+    }
 
     var body: some View {
         let insights = computeInsights()
@@ -58,7 +75,13 @@ struct DashboardView: View {
     // MARK: Data
 
     private func computeInsights() -> Insights {
-        let records = completed.compactMap { session -> SessionRecord? in
+        let days = dayRollups.map {
+            DayStat(day: $0.day, activeSeconds: $0.activeSeconds, awaySeconds: $0.awaySeconds, blockCount: $0.blockCount)
+        }
+        let appDays = appRollups.map {
+            AppDayStat(day: $0.day, bundleID: $0.bundleID, appName: $0.appName, seconds: $0.seconds)
+        }
+        let sessions = windowSessions.compactMap { session -> SessionRecord? in
             guard let end = session.end else { return nil }
             return SessionRecord(
                 start: session.start,
@@ -68,10 +91,7 @@ struct DashboardView: View {
                 awaySeconds: session.awaySeconds
             )
         }
-        let spans = intervals.map {
-            AppSpan(bundleID: $0.appBundleID, appName: $0.appName, start: $0.start, duration: $0.duration)
-        }
-        return InsightsService.compute(sessions: records, appSpans: spans)
+        return InsightsService.compute(days: days, appDays: appDays, sessions: sessions)
     }
 
     // MARK: Sections
@@ -153,14 +173,14 @@ struct DashboardView: View {
             HStack {
                 Text("Recent blocks").font(.headline)
                 Spacer()
-                if !completed.isEmpty {
+                if !recentSessions.isEmpty {
                     NavigationLink("See all", value: AllSessionsRoute())
                 }
             }
-            if completed.isEmpty {
+            if recentSessions.isEmpty {
                 emptyHint("No completed blocks yet. Start one from the menu bar.")
             } else {
-                ForEach(Array(completed.prefix(15))) { session in
+                ForEach(recentSessions) { session in
                     NavigationLink(value: session) { recentRow(session) }
                         .buttonStyle(.plain)
                     Divider()

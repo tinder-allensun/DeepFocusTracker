@@ -6,6 +6,10 @@ import SwiftData
 /// or "distraction" — that interpretation is left to the user.
 @Model
 final class AppInterval {
+    // Compound index for the per-session detail view and delete (filter by
+    // `sessionID`, ordered by `start`).
+    #Index<AppInterval>([\.sessionID, \.start])
+
     var sessionID: UUID
     var appBundleID: String
     var appName: String

@@ -7,20 +7,57 @@ import SwiftData
 /// the NavigationStack's typed path and can misroute Back into a session detail.
 struct AllSessionsRoute: Hashable {}
 
-/// The full, scrollable history of completed focus blocks. Tap a row to open its
-/// detail; right-click to delete. Pushed from the dashboard's "See all".
+/// The full, scrollable history of completed focus blocks, paginated so it stays
+/// bounded no matter how large the history grows. Tap a row to open its detail;
+/// right-click to delete.
 struct AllSessionsView: View {
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \FocusSession.start, order: .reverse) private var sessions: [FocusSession]
+    @State private var limit = 100
+
+    var body: some View {
+        PaginatedSessionList(limit: limit, onShowMore: { limit += 100 })
+            .navigationTitle("All Sessions")
+            // See CLAUDE.md: hide the buggy system back button; drive the pop from
+            // our own toolbar button.
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("Back", systemImage: "chevron.backward")
+                    }
+                    .help("Back to dashboard")
+                }
+            }
+    }
+}
+
+/// The list body, in a child view so its `@Query` (with a growing `fetchLimit`)
+/// is rebuilt whenever the page size changes — the dynamic-query pattern.
+private struct PaginatedSessionList: View {
+    @Environment(\.modelContext) private var context
+    @Query private var sessions: [FocusSession]
+
+    private let limit: Int
+    private let onShowMore: () -> Void
 
     @State private var pendingDelete: FocusSession?
 
-    private var completed: [FocusSession] { sessions.filter { $0.end != nil } }
+    init(limit: Int, onShowMore: @escaping () -> Void) {
+        self.limit = limit
+        self.onShowMore = onShowMore
+        var descriptor = FetchDescriptor<FocusSession>(
+            predicate: #Predicate { $0.end != nil },
+            sortBy: [SortDescriptor(\.start, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        _sessions = Query(descriptor)
+    }
 
     var body: some View {
         Group {
-            if completed.isEmpty {
+            if sessions.isEmpty {
                 ContentUnavailableView(
                     "No focus blocks yet",
                     systemImage: "brain",
@@ -28,7 +65,7 @@ struct AllSessionsView: View {
                 )
             } else {
                 List {
-                    ForEach(completed) { session in
+                    ForEach(sessions) { session in
                         NavigationLink(value: session) {
                             row(session)
                         }
@@ -40,22 +77,12 @@ struct AllSessionsView: View {
                             }
                         }
                     }
+                    // If we filled the page, there may be more history to load.
+                    if sessions.count >= limit {
+                        Button("Show more", action: onShowMore)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
-            }
-        }
-        .navigationTitle("All Sessions")
-        // The system-injected NavigationStack back button overlaps the title and
-        // won't take clicks in this LSUIElement dashboard Window; hide it and
-        // drive the pop from our own toolbar button below.
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Back", systemImage: "chevron.backward")
-                }
-                .help("Back to dashboard")
             }
         }
         .confirmationDialog(

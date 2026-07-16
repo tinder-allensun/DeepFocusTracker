@@ -12,6 +12,9 @@ struct DeepFocusTrackerApp: App {
     init() {
         let container = Self.makeContainer()
         self.container = container
+        #if DEBUG
+        TestDataSeeder.seedIfRequested(in: container.mainContext)
+        #endif
         _focus = State(initialValue: FocusController(context: container.mainContext))
     }
 
@@ -44,6 +47,8 @@ struct DeepFocusTrackerApp: App {
             FocusSession.self,
             AppInterval.self,
             SessionLabel.self,
+            DayRollup.self,
+            DayAppRollup.self,
         ])
 
         let storeURL = appStoreURL()

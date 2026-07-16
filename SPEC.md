@@ -83,10 +83,14 @@ Start block (+ label)
 - **FocusSession** — `id, label, start, end, targetDuration?, activeSeconds, awaySeconds, switchCount`
 - **AppInterval** — `sessionId, appBundleId, appName, start, duration`
 - **SessionLabel** — `name, colorHex, createdAt`
+- **DayRollup** — `day (unique), activeSeconds, awaySeconds, blockCount` (denormalized daily totals)
+- **DayAppRollup** — `day, bundleId, appName, seconds` (denormalized per-day-per-app; unique `(day, bundleId)`)
 - **Settings** — `defaultDurationMin, idleTimeoutSec, launchAtLogin` (`@AppStorage`-backed)
 
 _A session's per-app time + % is derived from its `AppInterval`s; `activeSeconds` /
-`awaySeconds` are cached on the session at stop for fast dashboard rollups._
+`awaySeconds` are cached on the session at stop. The dashboard reads the
+denormalized `DayRollup` / `DayAppRollup` tables (maintained at stop and on delete)
+so it never scans the full interval table — see ARCHITECTURE.md "Scalability & rollups"._
 _New non-optional attributes carry inline defaults (`= 0`) so SwiftData lightweight
 migrations can populate existing rows._
 
