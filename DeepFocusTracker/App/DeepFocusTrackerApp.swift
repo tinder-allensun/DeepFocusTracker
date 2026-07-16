@@ -8,6 +8,8 @@ struct DeepFocusTrackerApp: App {
 
     private let container: ModelContainer
     @State private var focus: FocusController
+    /// Shared so the menu-bar popover can deep-link into the dashboard's stack.
+    @State private var navigator = DashboardNavigator()
 
     init() {
         let container = Self.makeContainer()
@@ -22,6 +24,7 @@ struct DeepFocusTrackerApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environment(focus)
+                .environment(navigator)
                 .modelContainer(container)
         } label: {
             MenuBarLabel(focus: focus)
@@ -30,6 +33,7 @@ struct DeepFocusTrackerApp: App {
 
         Window("DeepFocusTracker — Dashboard", id: DashboardWindow.id) {
             DashboardView()
+                .environment(navigator)
                 .modelContainer(container)
         }
         .defaultSize(width: 700, height: 620)

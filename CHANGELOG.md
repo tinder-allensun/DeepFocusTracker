@@ -5,9 +5,39 @@ tagged release; loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-- **M4 — Polish** (planned): a Settings window (default block length, idle
-  timeout), launch-at-login via `SMAppService`, a `SettingsStore`, and small
-  niceties (menu-bar template icon, empty states, About).
+### Added
+
+- **In-app "How to use" guide** (`GuideView`) reached from a **?** in the popover
+  header and the dashboard toolbar: how tracking works, a glossary of every metric
+  (Active, Away, Switches, per-app %, Target, Streak) with how each is calculated,
+  and the privacy stance.
+- `TimeFormat.compact` — self-labeling durations (`45s`, `25m`, `1h 20m`) for
+  aggregate totals.
+
+### Changed
+
+- Dashboard tiles/lists/by-label, session detail, and the end-of-block summary now
+  show durations in the readable **compact** form instead of `MM:SS`; the top-apps
+  chart x-axis shows compact time ticks (was unlabeled raw minutes like `0.02`).
+  `clock()` (MM:SS) is now used only for the live menu-bar timer.
+
+### Fixed
+
+- Opening the dashboard could land on the guide (or another stale pushed screen)
+  when it had been left open without navigating back. The popover now states its
+  destination and the stack resets on close, so **Dashboard → overview** and
+  **? → guide** every time.
+
+### Docs
+
+- ARCHITECTURE.md: new **"Units, storage & the formatting boundary"** section —
+  seconds as the stored unit, and where human units get attached.
+
+### Planned
+
+- **M4 — Polish:** a Settings window (default block length, idle timeout),
+  launch-at-login via `SMAppService`, a `SettingsStore`, and small niceties
+  (menu-bar template icon, empty states, About).
 - **Packaging:** `scripts/package.sh` (Release build → installable / shareable
   zip) plus [PACKAGING.md](PACKAGING.md) covering the distribution options
   (ad-hoc, Developer ID + notarization, App Store).

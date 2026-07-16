@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import Charts
 import AppKit
+import Observation
 
 /// Opening a window from an `LSUIElement` agent needs the app to briefly become
 /// a regular (Dock) app so the window can take focus; we revert on close.
@@ -19,6 +20,20 @@ enum DashboardWindow {
     }
 }
 
+/// Cross-scene navigation signal. The menu-bar popover and the dashboard live in
+/// separate scenes, and a `Window` can't receive a value through `openWindow`, so
+/// the popover states *where* the dashboard should be, and the dashboard consumes
+/// it — on appear (opened from closed) or on change (already on screen).
+@Observable
+final class DashboardNavigator {
+    /// Where the dashboard should land when it next opens or comes forward. A
+    /// one-shot request: "Dashboard" asks for `.root`, "How to use" for `.guide`.
+    /// Consuming it resets the stack, so a window closed mid-guide never reopens
+    /// onto that stale, un-popped page.
+    enum Destination { case root, guide }
+    var pending: Destination?
+}
+
 /// Aggregated view of your focus history across sessions.
 struct DashboardView: View {
     @Query(sort: \DayRollup.day) private var dayRollups: [DayRollup]
@@ -27,6 +42,11 @@ struct DashboardView: View {
     @Query private var windowSessions: [FocusSession]
     /// The latest handful of completed blocks for the "Recent" list.
     @Query private var recentSessions: [FocusSession]
+
+    @Environment(DashboardNavigator.self) private var navigator
+    /// Explicit stack path so the guide can be pushed programmatically (toolbar
+    /// button or a deep-link from the popover), alongside the value-based links.
+    @State private var path = NavigationPath()
 
     init(now: Date = .now, calendar: Calendar = .current) {
         let today = calendar.startOfDay(for: now)
@@ -45,7 +65,7 @@ struct DashboardView: View {
 
     var body: some View {
         let insights = computeInsights()
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     tiles(insights)
@@ -57,6 +77,16 @@ struct DashboardView: View {
                 .padding(20)
             }
             .navigationTitle("Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        path.append(GuideRoute())
+                    } label: {
+                        Label("How it works", systemImage: "questionmark.circle")
+                    }
+                    .help("How it works")
+                }
+            }
             // Keep every push in this stack value-based (typed routes). Do NOT mix
             // in destination-closure links (`NavigationLink { SomeView() }`) —
             // mixing the two styles desyncs the stack and intermittently misroutes
@@ -67,9 +97,35 @@ struct DashboardView: View {
             .navigationDestination(for: AllSessionsRoute.self) { _ in
                 AllSessionsView()
             }
+            .navigationDestination(for: GuideRoute.self) { _ in
+                GuideView()
+            }
         }
         .frame(minWidth: 620, minHeight: 520)
-        .onDisappear { DashboardWindow.didClose() }
+        // Apply the popover's request when we first appear (opened from closed) or
+        // when it changes while we're already on screen (brought forward). This
+        // makes every open deterministic instead of reopening onto a stale stack.
+        .onAppear { applyPendingDestination() }
+        .onChange(of: navigator.pending) { _, pending in
+            if pending != nil { applyPendingDestination() }
+        }
+        .onDisappear {
+            // Don't reopen onto a page left mid-stack when the window was closed
+            // without navigating back.
+            path = NavigationPath()
+            DashboardWindow.didClose()
+        }
+    }
+
+    /// Consume a one-shot navigation request from the popover, resetting the stack
+    /// so we always land exactly where asked (root or guide), never on leftovers.
+    private func applyPendingDestination() {
+        guard let destination = navigator.pending else { return }
+        navigator.pending = nil
+        path = NavigationPath()
+        if destination == .guide {
+            path.append(GuideRoute())
+        }
     }
 
     // MARK: Data
@@ -99,9 +155,9 @@ struct DashboardView: View {
     @ViewBuilder
     private func tiles(_ insights: Insights) -> some View {
         HStack(spacing: 14) {
-            tile("Today", TimeFormat.clock(insights.todayActive), blocksCaption(insights.todayBlocks))
+            tile("Today", TimeFormat.compact(insights.todayActive), blocksCaption(insights.todayBlocks))
             tile("Streak", "\(insights.streakDays)", insights.streakDays == 1 ? "day" : "days")
-            tile("Last 14 days", TimeFormat.clock(insights.windowActive), blocksCaption(insights.windowBlocks))
+            tile("Last 14 days", TimeFormat.compact(insights.windowActive), blocksCaption(insights.windowBlocks))
         }
     }
 
@@ -142,11 +198,25 @@ struct DashboardView: View {
             Text("Top apps — last 14 days").font(.headline)
             Chart(insights.byApp) { app in
                 BarMark(
-                    x: .value("Minutes", app.seconds / 60),
+                    x: .value("Focus time", app.seconds),
                     y: .value("App", app.appName)
                 )
                 .foregroundStyle(Color.accentColor)
             }
+            // Self-labeling duration ticks (5m, 1h, …) instead of raw minutes like
+            // "0.02" — the unit rides on each tick, so no single fixed axis unit.
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let seconds = value.as(Double.self) {
+                            Text(TimeFormat.compact(seconds))
+                        }
+                    }
+                }
+            }
+            .chartXAxisLabel("focus time")
             .frame(height: CGFloat(insights.byApp.count) * 30 + 24)
         }
     }
@@ -160,7 +230,7 @@ struct DashboardView: View {
                     Text(label.label).lineLimit(1)
                     Spacer()
                     Text(blocksCaption(label.blocks)).font(.caption).foregroundStyle(.secondary)
-                    Text(TimeFormat.clock(label.seconds)).monospacedDigit().frame(width: 72, alignment: .trailing)
+                    Text(TimeFormat.compact(label.seconds)).monospacedDigit().frame(width: 72, alignment: .trailing)
                 }
                 .font(.callout)
             }
@@ -198,9 +268,9 @@ struct DashboardView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
-                Text(TimeFormat.clock(session.activeSeconds)).monospacedDigit()
+                Text(TimeFormat.compact(session.activeSeconds)).monospacedDigit()
                 if session.awaySeconds >= 1 {
-                    Text("away \(TimeFormat.clock(session.awaySeconds))")
+                    Text("away \(TimeFormat.compact(session.awaySeconds))")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }

@@ -14,9 +14,9 @@ struct SessionSummaryView: View {
                 .lineLimit(1)
 
             HStack(alignment: .top) {
-                stat("Active", TimeFormat.clock(summary.activeSeconds))
+                stat("Active", TimeFormat.compact(summary.activeSeconds))
                 Spacer()
-                stat("Away", TimeFormat.clock(summary.awaySeconds))
+                stat("Away", TimeFormat.compact(summary.awaySeconds))
                 Spacer()
                 stat("Switches", "\(summary.switchCount)")
             }
@@ -38,7 +38,7 @@ struct SessionSummaryView: View {
                         Text("\(percent(app))%")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
-                        Text(TimeFormat.clock(app.seconds))
+                        Text(TimeFormat.compact(app.seconds))
                             .monospacedDigit()
                             .frame(width: 62, alignment: .trailing)
                     }

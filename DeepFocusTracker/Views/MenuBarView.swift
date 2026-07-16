@@ -6,6 +6,7 @@ import AppKit
 /// per-app tallies while running, or review the summary when a block ends.
 struct MenuBarView: View {
     @Environment(FocusController.self) private var focus
+    @Environment(DashboardNavigator.self) private var navigator
     @Environment(\.openWindow) private var openWindow
     @Query(sort: \SessionLabel.createdAt) private var labels: [SessionLabel]
 
@@ -38,6 +39,15 @@ struct MenuBarView: View {
             Image(systemName: "brain.head.profile")
             Text("DeepFocusTracker").font(.headline)
             Spacer()
+            Button {
+                // Open the dashboard straight to the guide.
+                navigator.pending = .guide
+                DashboardWindow.show(openWindow)
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .help("How to use")
         }
     }
 
@@ -191,6 +201,9 @@ struct MenuBarView: View {
     private var footer: some View {
         HStack {
             Button {
+                // Open the dashboard at its root (not wherever the stack was
+                // last left).
+                navigator.pending = .root
                 DashboardWindow.show(openWindow)
             } label: {
                 Label("Dashboard", systemImage: "chart.bar.xaxis")

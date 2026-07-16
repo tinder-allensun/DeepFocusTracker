@@ -113,9 +113,9 @@ private struct PaginatedSessionList: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
-                Text(TimeFormat.clock(session.activeSeconds)).monospacedDigit()
+                Text(TimeFormat.compact(session.activeSeconds)).monospacedDigit()
                 if session.awaySeconds >= 1 {
-                    Text("away \(TimeFormat.clock(session.awaySeconds))")
+                    Text("away \(TimeFormat.compact(session.awaySeconds))")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
