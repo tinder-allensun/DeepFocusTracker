@@ -8,7 +8,9 @@ struct MenuBarView: View {
     @Environment(FocusController.self) private var focus
     @Environment(DashboardNavigator.self) private var navigator
     @Environment(\.openWindow) private var openWindow
-    @Query(sort: \SessionLabel.createdAt) private var labels: [SessionLabel]
+    // Ordering (most-recently-used first, capped) is applied by `LabelChooser`, so
+    // just fetch the catalog here.
+    @Query private var labels: [SessionLabel]
 
     @State private var labelText: String = ""
     @State private var targetMinutes: Int = 50
@@ -63,13 +65,21 @@ struct MenuBarView: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(startBlock)
 
-            if !labels.isEmpty {
+            let chips = LabelChooser.chips(from: labels)
+            if !chips.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(labels) { label in
+                        ForEach(chips) { label in
                             Button(label.name) { labelText = label.name }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .contextMenu {
+                                    // Right-click to drop the suggestion; recorded
+                                    // sessions keep their (string-copied) label.
+                                    Button("Delete “\(label.name)”", role: .destructive) {
+                                        focus.deleteLabel(label)
+                                    }
+                                }
                         }
                     }
                 }

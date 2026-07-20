@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-16 · Status: M1–M3 shipped (+ session detail, history management, in-app guide & readable durations); M4 (polish) next_
+_Last updated: 2026-07-20 · Status: M1–M3 shipped (+ session detail, history management, in-app guide, readable durations & recently-used labels); M4 (polish) next_
 
 ## 1. Overview
 
@@ -57,7 +57,7 @@ Start block (+ label)
 | # | Feature | Detail |
 |---|---------|--------|
 | 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min). |
-| 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. |
+| 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. Labels you type are remembered; the quick-pick chooser lists your **most-recently-used** first, then the seed defaults, capped at 5. Right-click a chip to **delete** it — that only drops the suggestion; recorded sessions keep their label. |
 | 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. The current app is always shown. No focus/distraction judgment — just the numbers. |
 | 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
 | 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. Click any block for its **full per-app detail** (time + %, active/away/switches), browse the complete **All Sessions** history, and **delete** blocks you don't want to keep. |
@@ -83,7 +83,7 @@ Start block (+ label)
 
 - **FocusSession** — `id, label, start, end, targetDuration?, activeSeconds, awaySeconds, switchCount`
 - **AppInterval** — `sessionId, appBundleId, appName, start, duration`
-- **SessionLabel** — `name, colorHex, createdAt`
+- **SessionLabel** — `name (unique), colorHex, createdAt, lastUsed?` (reusable quick-pick labels; `lastUsed` drives most-recently-used ordering)
 - **DayRollup** — `day (unique), activeSeconds, awaySeconds, blockCount` (denormalized daily totals)
 - **DayAppRollup** — `day, bundleId, appName, seconds` (denormalized per-day-per-app; unique `(day, bundleId)`)
 - **Settings** — `defaultDurationMin, idleTimeoutSec, launchAtLogin` (`@AppStorage`-backed)
@@ -93,7 +93,8 @@ _A session's per-app time + % is derived from its `AppInterval`s; `activeSeconds
 denormalized `DayRollup` / `DayAppRollup` tables (maintained at stop and on delete)
 so it never scans the full interval table — see ARCHITECTURE.md "Scalability & rollups"._
 _New non-optional attributes carry inline defaults (`= 0`) so SwiftData lightweight
-migrations can populate existing rows._
+migrations can populate existing rows; optional attributes (e.g. `lastUsed?`) need
+none._
 
 ## 7. Tracking behavior
 
@@ -195,7 +196,7 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 
 ### Notes
 - **Nudges were removed** by design: the app doesn't judge focus vs. distraction, so real-time "you're distracted" nudges don't fit. If wanted later, they'd be **user-defined** (you pick which apps or time thresholds trigger them), revisited after you've reviewed your own usage data.
-- **Testing:** `UsageAggregator` (M2) and `InsightsService` (M3) are pure and kept separate from UI so they stay unit-testable; a formal XCTest target can be added when useful.
+- **Testing:** `UsageAggregator` (M2), `InsightsService` (M3), and `LabelChooser` (label ordering) are pure and kept separate from UI so they stay unit-testable; a formal XCTest target can be added when useful.
 - **Settings** are `@AppStorage`-backed for MVP; the "Settings" entity is a `SettingsStore`, not a SwiftData model.
 
 ## 11. Open questions / future

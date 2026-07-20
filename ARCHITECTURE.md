@@ -31,7 +31,7 @@ Source lives in `DeepFocusTracker/` (a file-system **synchronized group** — se
 | `Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup), `SessionHistory` (delete a block + its intervals). |
 | `Insights/` | `InsightsService` — pure aggregation of history into dashboard figures. |
 | `Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `AllSessionsView`, `SessionDetailView`). |
-| `Support/` | Small shared helpers (`TimeFormat`). |
+| `Support/` | Small shared helpers: `TimeFormat` (duration formatting) and `LabelChooser` (pure menu-bar label ordering). |
 
 ## Data model
 
@@ -54,7 +54,7 @@ FocusSession                         AppInterval
 ├─ awaySeconds:   TimeInterval = 0
 └─ switchCount:   Int = 0
 
-SessionLabel:  name (unique), colorHex, createdAt   // reusable block labels
+SessionLabel:  name (unique), colorHex, createdAt, lastUsed?   // reusable quick-pick labels
 
 DayRollup:     day (unique), activeSeconds, awaySeconds, blockCount
 DayAppRollup:  day, bundleID, appName, seconds       // unique (day, bundleID)
@@ -66,6 +66,19 @@ carry inline defaults (`= 0`) so SwiftData lightweight migration can populate
 existing rows — see [Persistence & migration](#persistence--migration). At the same
 moment the block's totals are folded into that day's rollups (and subtracted again
 on delete) — see [Scalability & rollups](#scalability--rollups).
+
+`SessionLabel` is a standalone quick-pick **catalog**, *not* linked to
+`FocusSession` (a session stores its label as a plain `String` copy, so renaming a
+label never rewrites past sessions). `FocusController.start` upserts it for any
+non-empty typed label — a **case-insensitive** in-memory match bumps the used
+label's `lastUsed`, otherwise a new label is inserted — and the pure `LabelChooser`
+orders the menu-bar chips most-recently-used first, then never-used seed defaults
+(stable by `createdAt` then `name`), capped at 5. `lastUsed` is optional, so the
+store migrates without a default. Right-clicking a chip calls
+`FocusController.deleteLabel` (a plain `context.delete`); because the catalog is
+unlinked from sessions, this drops only the suggestion — no recorded session or
+rollup changes. (Deleting *every* label leaves the table empty, so
+`seedDefaultLabelsIfNeeded` reseeds the defaults on next launch.)
 
 ## Units, storage & the formatting boundary
 
@@ -160,6 +173,7 @@ User clicks Start (MenuBarView)
       ▼
 FocusController.start(label:target:)
       ├─ insert + save FocusSession (end = nil)
+      ├─ recordLabelUse(label)           → upsert quick-pick catalog (bump/insert lastUsed)
       ├─ ActivityMonitor.start()         → seeds current app as the open span
       └─ startTicking()                  → 1 s timer drives the live counter/tallies
       │
@@ -322,8 +336,8 @@ to confirm the dashboard stays flat as the raw tables grow.
 
 ## Testing
 
-The pure logic (`UsageAggregator`, `InsightsService`, `TimeFormat`) is
-value-in/value-out and unit-testable. There is **no XCTest target yet** — add one
+The pure logic (`UsageAggregator`, `InsightsService`, `TimeFormat`, `LabelChooser`)
+is value-in/value-out and unit-testable. There is **no XCTest target yet** — add one
 when useful (`DeepFocusTrackerTests`) targeting those types. Interactive behavior
 (live tracking, dashboard) is verified by building and driving the app.
 
