@@ -74,6 +74,13 @@ final class FocusController {
             targetDuration: targetDuration
         )
         context.insert(session)
+        // Keep the quick-pick catalog current: remember this label (or add it if
+        // it's new) so it surfaces as a recently-used chip next time. Only for
+        // labels the user actually typed — a blank start defaults the *session* to
+        // "Focus" but shouldn't seed a chip for it.
+        if !trimmed.isEmpty {
+            recordLabelUse(trimmed, now: now)
+        }
         try? context.save()
         activeSession = session
         monitor.start(now: now)
@@ -152,6 +159,24 @@ final class FocusController {
         descriptor.fetchLimit = 1
         return (try? context.fetch(descriptor))?.first
     }
+
+    /// Upsert the quick-pick catalog for a label used to start a block. Matches an
+    /// existing label case-insensitively (so "coding" reuses the "Coding" chip
+    /// rather than spawning a near-duplicate) and bumps its `lastUsed`; otherwise
+    /// inserts a new label. The catalog is tiny, so we match in memory rather than
+    /// via a predicate. Caller saves the context.
+    private func recordLabelUse(_ name: String, now: Date) {
+        let all = (try? context.fetch(FetchDescriptor<SessionLabel>())) ?? []
+        if let existing = all.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            existing.lastUsed = now
+        } else {
+            context.insert(SessionLabel(name: name, colorHex: Self.defaultLabelColor, lastUsed: now))
+        }
+    }
+
+    /// Color for a user-created label. Neutral for now — `colorHex` is stored but
+    /// not yet rendered anywhere; seed labels carry their own distinct colors.
+    private static let defaultLabelColor = "#8E8E93"
 
     private static func seedDefaultLabelsIfNeeded(in context: ModelContext) {
         let existing = (try? context.fetchCount(FetchDescriptor<SessionLabel>())) ?? 0
