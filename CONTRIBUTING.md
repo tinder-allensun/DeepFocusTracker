@@ -41,12 +41,25 @@ and they're picked up automatically; **no `project.pbxproj` editing.**
 
 ## Testing & verification
 
-- The pure logic (`UsageAggregator`, `InsightsService`, `TimeFormat`) is
-  value-in/value-out and unit-testable. Add an XCTest target
-  (`DeepFocusTrackerTests`) targeting those types when it's worth it.
-- A green build is necessary but **not sufficient** for interactive features —
-  run the app and drive the change (start a block, switch apps, open the
-  dashboard).
+There's a **Swift Testing** target, `DeepFocusTrackerTests/`, covering the pure
+logic (`UsageAggregator`, `InsightsService`, `TimeFormat`, `LabelChooser`) and the
+SwiftData-backed paths (`FocusController`, `Rollups`, `SessionHistory`). Run it:
+
+```bash
+xcodebuild test -project DeepFocusTracker.xcodeproj -scheme DeepFocusTracker \
+  -configuration Debug -derivedDataPath DerivedData -destination 'platform=macOS'
+```
+
+- **Every behavioral change ships with tests, and `xcodebuild test` must be green
+  before you commit** — CI enforces this on push / PR. Pure logic → a unit test;
+  anything touching the store or rollups → a SwiftData integration test (against
+  an in-memory store via `TestStore.makeContext()`). See
+  [CLAUDE.md](CLAUDE.md#testing-the-guardrail) for the how and the gotchas.
+- Adding test files needs no `project.pbxproj` editing — the folder is a synced
+  group.
+- A green build/test run is necessary but **not sufficient** for interactive
+  features — also run the app and drive the change (start a block, switch apps,
+  open the dashboard).
 
 ## Packaging
 

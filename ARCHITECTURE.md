@@ -336,10 +336,42 @@ to confirm the dashboard stays flat as the raw tables grow.
 
 ## Testing
 
-The pure logic (`UsageAggregator`, `InsightsService`, `TimeFormat`, `LabelChooser`)
-is value-in/value-out and unit-testable. There is **no XCTest target yet** — add one
-when useful (`DeepFocusTrackerTests`) targeting those types. Interactive behavior
-(live tracking, dashboard) is verified by building and driving the app.
+There's a **Swift Testing** target, `DeepFocusTrackerTests/`, covering the whole
+non-UI core. It's the guardrail: every behavioral change adds/updates tests and
+`xcodebuild test` must be green before commit (CI enforces it). See
+[CLAUDE.md](CLAUDE.md#testing-the-guardrail) for the working rule; this section is
+the *why* behind the setup.
+
+**What's covered**
+
+- **Pure aggregators** — `UsageAggregator`, `InsightsService`, `TimeFormat`,
+  `LabelChooser`: value-in/value-out unit tests. `InsightsService`/`Rollups` take
+  an injected `now` / `Calendar`, so date-sensitive cases (windows, streaks,
+  day-keys) are deterministic under a fixed UTC calendar.
+- **SwiftData paths** — `FocusController` (start/stop lifecycle, label upsert,
+  seeding, open-session recovery), `Rollups` (accumulate/decrement, row cleanup),
+  and `SessionHistory` (delete session + intervals, no orphans): integration tests
+  against an in-memory store. `RollupConsistencyTests` seeds data and asserts the
+  denormalized rollups equal a full recompute from the raw rows — a direct guard
+  on the [Scalability & rollups](#scalability--rollups) invariant.
+- **Views** are *not* unit-tested — interactive behavior (live tracking, the
+  dashboard) is verified by driving the running app.
+
+**How it's wired (and why)**
+
+- **Swift Testing, not XCTest** — `@Test` / `#expect` read more clearly and it's
+  the current default in the Xcode 26 toolchain.
+- **Synchronized group** — `DeepFocusTrackerTests/` is a file-system synchronized
+  group like the app target, so new test files need no `project.pbxproj` edits.
+- **Hosted by the app** — the bundle uses the app as its `TEST_HOST` so
+  `@testable import DeepFocusTracker` resolves the app's symbols. But two
+  `ModelContainer`s over the same `@Model` types in one process make CoreData trap
+  ("multiple NSEntityDescriptions claim the NSManagedObject subclass"), so: (1) the
+  app runs as a **bare host** under the `DFT_TESTING` env var (no container built —
+  see `DeepFocusTrackerApp.init`), and (2) the tests share **one** in-memory
+  container (`TestStore.shared`), wiping it per test for isolation. Store-touching
+  suites are `@MainActor`, which both matches the app's isolation and serializes
+  them so the shared container is race-free.
 
 ## Known limitations & future
 

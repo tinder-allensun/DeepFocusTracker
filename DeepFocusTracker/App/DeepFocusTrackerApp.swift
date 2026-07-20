@@ -6,12 +6,23 @@ import AppKit
 struct DeepFocusTrackerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    private let container: ModelContainer
-    @State private var focus: FocusController
+    // Optional so the app can run as a bare host under test (see `init`).
+    private let container: ModelContainer?
+    @State private var focus: FocusController?
     /// Shared so the menu-bar popover can deep-link into the dashboard's stack.
     @State private var navigator = DashboardNavigator()
 
     init() {
+        // When launched only to host the unit-test bundle, don't stand up SwiftData
+        // at all: the tests create their own `ModelContainer`, and a second
+        // container over the same `@Model` types in one process makes CoreData trap
+        // ("multiple NSEntityDescriptions claim the NSManagedObject subclass"). So
+        // run a bare host. `DFT_TESTING` is set by the scheme's Test action.
+        guard ProcessInfo.processInfo.environment["DFT_TESTING"] == nil else {
+            self.container = nil
+            return
+        }
+
         let container = Self.makeContainer()
         self.container = container
         #if DEBUG
@@ -21,20 +32,32 @@ struct DeepFocusTrackerApp: App {
     }
 
     var body: some Scene {
+        // The scene structure is unconditional (`SceneBuilder` doesn't allow
+        // control flow); the nil-under-test cases are handled *inside* the view
+        // builders, which do. In the real app `focus`/`container` are set; while
+        // hosting tests they're nil and these render a bare host (see `init`).
         MenuBarExtra {
-            MenuBarView()
-                .environment(focus)
-                .environment(navigator)
-                .modelContainer(container)
+            if let focus, let container {
+                MenuBarView()
+                    .environment(focus)
+                    .environment(navigator)
+                    .modelContainer(container)
+            }
         } label: {
-            MenuBarLabel(focus: focus)
+            if let focus {
+                MenuBarLabel(focus: focus)
+            } else {
+                Image(systemName: "brain")
+            }
         }
         .menuBarExtraStyle(.window)
 
         Window("DeepFocusTracker — Dashboard", id: DashboardWindow.id) {
-            DashboardView()
-                .environment(navigator)
-                .modelContainer(container)
+            if let container {
+                DashboardView()
+                    .environment(navigator)
+                    .modelContainer(container)
+            }
         }
         .defaultSize(width: 700, height: 620)
         .windowResizability(.contentMinSize)

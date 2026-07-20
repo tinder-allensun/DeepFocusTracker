@@ -8,14 +8,23 @@
 
 /* Begin PBXFileReference section */
 		AA0000000000000000000004 /* DeepFocusTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeepFocusTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000011 /* DeepFocusTrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeepFocusTrackerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA000000000000000000000F /* DeepFocusTracker */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = DeepFocusTracker; sourceTree = "<group>"; };
+		AA0000000000000000000012 /* DeepFocusTrackerTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = DeepFocusTrackerTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000014 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,6 +38,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000000000000000000000F /* DeepFocusTracker */,
+				AA0000000000000000000012 /* DeepFocusTrackerTests */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -37,6 +47,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000004 /* DeepFocusTracker.app */,
+				AA0000000000000000000011 /* DeepFocusTrackerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,7 +75,46 @@
 			productReference = AA0000000000000000000004 /* DeepFocusTracker.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA0000000000000000000010 /* DeepFocusTrackerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000000000000000000001A /* Build configuration list for PBXNativeTarget "DeepFocusTrackerTests" */;
+			buildPhases = (
+				AA0000000000000000000013 /* Sources */,
+				AA0000000000000000000014 /* Frameworks */,
+				AA0000000000000000000015 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000000000000000000016 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AA0000000000000000000012 /* DeepFocusTrackerTests */,
+			);
+			name = DeepFocusTrackerTests;
+			productName = DeepFocusTrackerTests;
+			productReference = AA0000000000000000000011 /* DeepFocusTrackerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		AA0000000000000000000017 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000005;
+			remoteInfo = DeepFocusTracker;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AA0000000000000000000016 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000005 /* DeepFocusTracker */;
+			targetProxy = AA0000000000000000000017 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		AA0000000000000000000001 /* Project object */ = {
@@ -76,6 +126,10 @@
 				TargetAttributes = {
 					AA0000000000000000000005 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					AA0000000000000000000010 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = AA0000000000000000000005;
 					};
 				};
 			};
@@ -93,6 +147,7 @@
 			projectRoot = "";
 			targets = (
 				AA0000000000000000000005 /* DeepFocusTracker */,
+				AA0000000000000000000010 /* DeepFocusTrackerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -105,10 +160,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA0000000000000000000015 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000013 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -208,6 +277,45 @@
 			};
 			name = Release;
 		};
+		AA0000000000000000000018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.allensun.DeepFocusTrackerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DeepFocusTracker.app/Contents/MacOS/DeepFocusTracker";
+			};
+			name = Debug;
+		};
+		AA0000000000000000000019 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.allensun.DeepFocusTrackerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DeepFocusTracker.app/Contents/MacOS/DeepFocusTracker";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -225,6 +333,15 @@
 			buildConfigurations = (
 				AA000000000000000000000D /* Debug */,
 				AA000000000000000000000E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA000000000000000000001A /* Build configuration list for PBXNativeTarget "DeepFocusTrackerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000018 /* Debug */,
+				AA0000000000000000000019 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
