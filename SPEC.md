@@ -57,7 +57,7 @@ Start block (+ label)
 | # | Feature | Detail |
 |---|---------|--------|
 | 1 | **Menu-bar control** | Start/stop a focus block, with a live counter in the status bar (app icon + time) that **counts down** to a target — showing **+overtime** past it — or **counts up** when no target is set. Optional target duration (e.g. 50 min). |
-| 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. Labels you type are remembered; the quick-pick chooser lists your **most-recently-used** first, then the seed defaults, capped at 5. |
+| 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. Labels you type are remembered; the quick-pick chooser lists your **most-recently-used** first, then the seed defaults, capped at 5. Right-click a chip to **delete** it — that only drops the suggestion; recorded sessions keep their label. |
 | 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. The current app is always shown. No focus/distraction judgment — just the numbers. |
 | 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
 | 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. Click any block for its **full per-app detail** (time + %, active/away/switches), browse the complete **All Sessions** history, and **delete** blocks you don't want to keep. |

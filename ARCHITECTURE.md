@@ -74,7 +74,11 @@ non-empty typed label — a **case-insensitive** in-memory match bumps the used
 label's `lastUsed`, otherwise a new label is inserted — and the pure `LabelChooser`
 orders the menu-bar chips most-recently-used first, then never-used seed defaults
 (stable by `createdAt` then `name`), capped at 5. `lastUsed` is optional, so the
-store migrates without a default.
+store migrates without a default. Right-clicking a chip calls
+`FocusController.deleteLabel` (a plain `context.delete`); because the catalog is
+unlinked from sessions, this drops only the suggestion — no recorded session or
+rollup changes. (Deleting *every* label leaves the table empty, so
+`seedDefaultLabelsIfNeeded` reseeds the defaults on next launch.)
 
 ## Units, storage & the formatting boundary
 

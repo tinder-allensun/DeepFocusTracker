@@ -132,6 +132,14 @@ final class FocusController {
         lastSummary = nil
     }
 
+    /// Remove a label from the quick-pick catalog. Only drops the suggestion — a
+    /// recorded session stores its label as a plain string copy (no link to
+    /// `SessionLabel`), so past sessions and the dashboard are unaffected.
+    func deleteLabel(_ label: SessionLabel) {
+        context.delete(label)
+        try? context.save()
+    }
+
     // MARK: - Live ticking
 
     private func startTicking() {

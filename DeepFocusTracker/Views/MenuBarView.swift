@@ -73,6 +73,13 @@ struct MenuBarView: View {
                             Button(label.name) { labelText = label.name }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
+                                .contextMenu {
+                                    // Right-click to drop the suggestion; recorded
+                                    // sessions keep their (string-copied) label.
+                                    Button("Delete “\(label.name)”", role: .destructive) {
+                                        focus.deleteLabel(label)
+                                    }
+                                }
                         }
                     }
                 }
