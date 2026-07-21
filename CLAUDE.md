@@ -20,6 +20,12 @@ It **records, it does not judge** (no focus/distraction labels).
   primary window; the dashboard is opened on demand.
 - **MVP mindset.** Prefer the simplest thing that works and reads clearly. Keep
   measurement/aggregation logic pure and separate from UI.
+- **Tests are the guardrail.** Every behavioral change ships with tests that
+  cover it, and `xcodebuild test` must be green before you commit — this is how
+  we stay confident a change (or a future refactor) didn't break the core. Pure
+  logic gets a unit test; anything touching the store or rollups gets a SwiftData
+  integration test. A green *build* alone is **not** sufficient. See
+  [Testing](#testing-the-guardrail).
 
 ## Build, run, verify
 
@@ -38,22 +44,36 @@ xcodebuild -project DeepFocusTracker.xcodeproj -scheme DeepFocusTracker \
 open DerivedData/Build/Products/Debug/DeepFocusTracker.app
 ```
 
+Run the test suite (**required** before commit — see [Testing](#testing-the-guardrail)):
+
+```bash
+xcodebuild test -project DeepFocusTracker.xcodeproj -scheme DeepFocusTracker \
+  -configuration Debug -derivedDataPath DerivedData -destination 'platform=macOS'
+```
+
 - Ad-hoc signed ("Sign to Run Locally") — **no developer team required**.
 - It's a menu-bar agent: look for the 🧠 status-bar icon (no Dock icon).
-- **Verifying changes:** a green build is necessary but not sufficient. Live
-  tracking and the dashboard are interactive — drive them in the running app
-  (start a block, switch apps, open the dashboard). Pure logic can be reasoned
-  about / unit-tested directly.
+- **Verifying changes:** a green build is necessary but not sufficient. First,
+  `xcodebuild test` must pass (and cover your change). Then, because live tracking
+  and the dashboard are interactive, drive them in the running app (start a block,
+  switch apps, open the dashboard). Pure logic is covered by the unit tests.
 
 Ship a Release build (install locally or make a shareable zip) with
 `scripts/package.sh` — see [PACKAGING.md](PACKAGING.md).
 
 ## Project layout
 
-`DeepFocusTracker/` → `App/`, `Models/`, `Focus/`, `Insights/`, `Views/`,
-`Support/`. Responsibilities are in [ARCHITECTURE.md](ARCHITECTURE.md#module-layout).
-The project uses **file-system synchronized groups**: add or remove `.swift`
-files in that folder and Xcode picks them up — **no `project.pbxproj` editing.**
+Two targets: the **app** (`DeepFocusTracker/` → `App/` + assets — just the `@main`
+entry, `AppDelegate`, and scenes) and the **`DeepFocusCore` framework**
+(`DeepFocusCore/` → `Models/`, `Focus/`, `Insights/`, `Views/`, `Support/`) that
+holds all the logic and UI. Tests live in `DeepFocusTrackerTests/` and link the
+framework directly. Responsibilities are in
+[ARCHITECTURE.md](ARCHITECTURE.md#module-layout); testing is
+[below](#testing-the-guardrail).
+
+All three folders are **file-system synchronized groups**: add or remove `.swift`
+files and Xcode picks them up — **no `project.pbxproj` editing** (adding a whole
+new *target* is the rare exception that does).
 
 `tmp/` at the repo root is a **git-ignored scratchpad** for generated documents
 (plans, notes, throwaway analysis) — write those there, never into the tracked
@@ -69,6 +89,30 @@ tree.
   menu-bar timer, `compact` (`25m`, `1h 20m`) for aggregate totals. See
   ARCHITECTURE.md [Units, storage & the formatting boundary](ARCHITECTURE.md#units-storage--the-formatting-boundary).
 - Comments explain *why*, not *what*; keep them where a future reader would trip.
+
+## Testing (the guardrail)
+
+Tests live in `DeepFocusTrackerTests/` and use **Swift Testing** (`@Test` /
+`#expect`, `import Testing`). They link the **`DeepFocusCore` framework** directly
+(`@testable import DeepFocusCore`) — the app isn't launched — and run in well under
+a second via the `xcodebuild test` command above.
+
+**The rule for any change:** add or update tests so the new behavior is covered,
+and make `xcodebuild test` green *before* committing. This is the guardrail that
+lets us refactor with confidence. Concretely:
+
+- **Pure logic** (`UsageAggregator`, `InsightsService`, `TimeFormat`,
+  `LabelChooser`, and any new value-in/value-out code) → a **unit test**. Inject
+  `now` / `Calendar` for determinism (see `InsightsServiceTests`).
+- **Anything touching the store or rollups** (`FocusController`, `Rollups`,
+  `SessionHistory`, a new `@Model` or query) → a **SwiftData integration test**
+  against an in-memory store (`TestStore.makeContext()`). If it creates or removes
+  sessions/intervals, assert the `DayRollup` / `DayAppRollup` stay consistent (see
+  `RollupsTests`, `RollupConsistencyTests`).
+- **SwiftUI views** aren't unit-tested — verify those by driving the running app.
+
+Adding test files needs no `project.pbxproj` editing (synced group). CI runs
+`xcodebuild test` on every push / PR (`.github/workflows/ci.yml`).
 
 ## Gotchas (learned the hard way)
 
@@ -106,6 +150,21 @@ tree.
   creates or removes sessions/intervals must update the rollups too, or the
   dashboard drifts. Dev: launch with `SEED_TEST_DATA=<n>` to seed a fresh store
   (`TestDataSeeder`).
+- **The core lives in a framework so it's testable.** `DeepFocusCore` (all of
+  `Models/` / `Focus/` / `Insights/` / `Views/` / `Support/`) is a framework the
+  app links + embeds; the app target is just the `@main` entry + scenes. That's
+  what lets the tests `@testable import DeepFocusCore` and run **without launching
+  the app**. The app-facing types the entry point uses (`FocusController`,
+  `DashboardNavigator`, the three top-level views, `DashboardWindow.id`,
+  `DeepFocusStore`) are `public`; everything else stays `internal` (tests reach it
+  via `@testable`). Adding a `public` API? Keep the public surface minimal.
+- **One `ModelContainer` per process in tests:** creating a *second*
+  `ModelContainer` over the same `@Model` types in one process makes CoreData
+  **trap** on the first `fetch`/`insert` ("multiple NSEntityDescriptions claim the
+  NSManagedObject subclass"). So the tests share a single in-memory container
+  (`TestStore.shared`); each test starts clean via `TestStore.makeContext()` —
+  don't spin up per-test containers. Store-touching suites are `@MainActor`, which
+  also serializes them so the shared container is race-free.
 - **Git hook:** commits print a *"public repository"* warning (a corporate JAMF
   hook). This is expected and safe to ignore: the repo (`origin` →
   `github.com:tinder-allensun/DeepFocusTracker`) is **intentionally public**, so

@@ -4,7 +4,9 @@ import AppKit
 
 /// The menu-bar popover: start a block when idle, watch the live timer and
 /// per-app tallies while running, or review the summary when a block ends.
-struct MenuBarView: View {
+public struct MenuBarView: View {
+    public init() {}
+
     @Environment(FocusController.self) private var focus
     @Environment(DashboardNavigator.self) private var navigator
     @Environment(\.openWindow) private var openWindow
@@ -16,7 +18,7 @@ struct MenuBarView: View {
     @State private var targetMinutes: Int = 50
     @State private var useTarget: Bool = false
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             Divider()

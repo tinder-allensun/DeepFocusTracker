@@ -21,17 +21,27 @@ conventions, see [CLAUDE.md](CLAUDE.md).
 
 ## Module layout
 
-Source lives in `DeepFocusTracker/` (a file-system **synchronized group** — see
-[Build & packaging](#build--packaging)).
+**Two targets.** The **app** (`DeepFocusTracker/`) is a thin shell — the `@main`
+entry and the scenes. Everything else — models, the tracking engine, aggregation,
+and all the SwiftUI — lives in the **`DeepFocusCore` framework** (`DeepFocusCore/`),
+which the app links + embeds and the tests link directly. Splitting the core out
+is what lets the tests `@testable import DeepFocusCore` without launching the app
+(see [Testing](#testing)). Both source folders (and `DeepFocusTrackerTests/`) are
+file-system **synchronized groups** — see [Build & packaging](#build--packaging).
 
-| Folder | Responsibility |
+| Target · Folder | Responsibility |
 |---|---|
-| `App/` | `@main` entry (`DeepFocusTrackerApp`), the `AppDelegate` (sets `.accessory` policy), the SwiftData `ModelContainer` factory, and the two scenes (menu-bar + dashboard). |
-| `Models/` | SwiftData `@Model` types: `FocusSession`, `AppInterval`, `SessionLabel`. |
-| `Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup), `SessionHistory` (delete a block + its intervals). |
-| `Insights/` | `InsightsService` — pure aggregation of history into dashboard figures. |
-| `Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `AllSessionsView`, `SessionDetailView`). |
-| `Support/` | Small shared helpers: `TimeFormat` (duration formatting) and `LabelChooser` (pure menu-bar label ordering). |
+| **app** · `DeepFocusTracker/App/` | `@main` entry (`DeepFocusTrackerApp`), the `AppDelegate` (sets `.accessory` policy), and the two scenes (menu-bar + dashboard). Imports `DeepFocusCore`; holds no logic. |
+| `DeepFocusCore/Models/` | SwiftData `@Model` types: `FocusSession`, `AppInterval`, `SessionLabel`, `DayRollup`, `DayAppRollup`. |
+| `DeepFocusCore/Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup), `Rollups` (denormalized daily rollups), `SessionHistory` (delete a block + its intervals). |
+| `DeepFocusCore/Insights/` | `InsightsService` — pure aggregation of history into dashboard figures. |
+| `DeepFocusCore/Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `AllSessionsView`, `SessionDetailView`). |
+| `DeepFocusCore/Support/` | Shared helpers: `TimeFormat` (formatting), `LabelChooser` (label ordering), and `DeepFocusStore` (the SwiftData `ModelContainer` factory). |
+
+A small `public` surface (`FocusController`, `DashboardNavigator`, the three
+top-level views, `DashboardWindow.id`, `DeepFocusStore`) is what the app entry
+point consumes; everything else is `internal` and reached by tests via
+`@testable`.
 
 ## Data model
 
@@ -302,10 +312,12 @@ to confirm the dashboard stays flat as the raw tables grow.
 
 ## Build & packaging
 
-- **Hand-authored `.xcodeproj`** (no XcodeGen/Tuist). It uses Xcode's
-  **file-system synchronized groups**, so the `DeepFocusTracker/` folder is
-  mirrored into the target automatically — **add/remove `.swift` files on disk
-  and they're picked up; no `project.pbxproj` editing needed.**
+- **Hand-authored `.xcodeproj`** (no XcodeGen/Tuist), **three targets**: the app,
+  the **`DeepFocusCore`** framework (linked + embedded in the app), and the
+  `DeepFocusTrackerTests` bundle (links the framework, no host). Each maps to a
+  **file-system synchronized group**, so **add/remove `.swift` files on disk and
+  they're picked up; no `project.pbxproj` editing** — except adding a whole new
+  target.
 - **Deployment target:** macOS 15.0. **Toolchain:** Xcode 26 / Swift 6.2 compiler
   in Swift 5 language mode.
 - **Signing:** ad-hoc ("Sign to Run Locally", `CODE_SIGN_IDENTITY = "-"`) — no
@@ -336,10 +348,40 @@ to confirm the dashboard stays flat as the raw tables grow.
 
 ## Testing
 
-The pure logic (`UsageAggregator`, `InsightsService`, `TimeFormat`, `LabelChooser`)
-is value-in/value-out and unit-testable. There is **no XCTest target yet** — add one
-when useful (`DeepFocusTrackerTests`) targeting those types. Interactive behavior
-(live tracking, dashboard) is verified by building and driving the app.
+A **Swift Testing** target, `DeepFocusTrackerTests/`, covers the whole non-UI core.
+It's the guardrail: every behavioral change adds/updates tests and `xcodebuild test`
+must be green before commit (CI enforces it). See
+[CLAUDE.md](CLAUDE.md#testing-the-guardrail) for the working rule; this is the *why*.
+
+**What's covered**
+
+- **Pure aggregators** — `UsageAggregator`, `InsightsService`, `TimeFormat`,
+  `LabelChooser`: value-in/value-out unit tests. `InsightsService`/`Rollups` take an
+  injected `now` / `Calendar`, so windows, streaks, and day-keys are deterministic
+  under a fixed UTC calendar.
+- **SwiftData paths** — `FocusController` (start/stop lifecycle, label upsert,
+  seeding, open-session recovery), `Rollups` (accumulate/decrement, row cleanup),
+  and `SessionHistory` (delete session + intervals, no orphans): integration tests
+  against an in-memory store. `RollupConsistencyTests` seeds data and asserts the
+  denormalized rollups equal a full recompute from the raw rows — a direct guard on
+  the [Scalability & rollups](#scalability--rollups) invariant.
+- **Views** are *not* unit-tested — interactive behavior is verified by driving the
+  running app.
+
+**How it's wired (and why)**
+
+- **Swift Testing, not XCTest** — `@Test` / `#expect` read more clearly and it's the
+  current default in the Xcode 26 toolchain.
+- **The core is a framework** (`DeepFocusCore`). The test bundle links it and does
+  `@testable import DeepFocusCore`, so tests run as fast logic tests **without a
+  host app** — and the app entry point carries no test-only code. (An *app* target's
+  symbols aren't linkable without hosting it, which is why the core is a framework.)
+- **One container per process.** Two `ModelContainer`s over the same `@Model` types
+  in one process make CoreData trap ("multiple NSEntityDescriptions claim the
+  NSManagedObject subclass"), so the tests share one in-memory container
+  (`TestStore.shared`), wiped per test for isolation. Store-touching suites are
+  `@MainActor`, which matches the app's isolation and serializes them so the shared
+  container is race-free.
 
 ## Known limitations & future
 
