@@ -1,0 +1,37 @@
+name: CI
+
+# The test guardrail: build + run the Swift Testing suite on every push to main
+# and every pull request. A red run blocks the change (enforce via branch
+# protection on `main`). See CLAUDE.md → "Testing (the guardrail)".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # The project needs the Xcode 26 toolchain (Swift 6.2, macOS 15 SDK).
+      - name: Select Xcode 26
+        run: |
+          APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$APP" ]; then sudo xcode-select -s "$APP"; fi
+          xcodebuild -version
+
+      - name: Run tests
+        run: |
+          xcodebuild test \
+            -project DeepFocusTracker.xcodeproj \
+            -scheme DeepFocusTracker \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData

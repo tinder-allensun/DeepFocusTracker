@@ -7,7 +7,7 @@ import Observation
 /// records per-app usage. It records only — no focus/distraction judgment.
 @MainActor
 @Observable
-final class FocusController {
+public final class FocusController {
     private let context: ModelContext
     private let monitor: ActivityMonitor
 
@@ -24,7 +24,7 @@ final class FocusController {
 
     @ObservationIgnored private var timer: Timer?
 
-    init(context: ModelContext, idleTimeout: TimeInterval = 120) {
+    public init(context: ModelContext, idleTimeout: TimeInterval = 120) {
         self.context = context
         self.monitor = ActivityMonitor(idleTimeout: idleTimeout)
         self.activeSession = Self.fetchOpenSession(in: context)

@@ -6,8 +6,8 @@ import Observation
 
 /// Opening a window from an `LSUIElement` agent needs the app to briefly become
 /// a regular (Dock) app so the window can take focus; we revert on close.
-enum DashboardWindow {
-    static let id = "dashboard"
+public enum DashboardWindow {
+    public static let id = "dashboard"
 
     static func show(_ openWindow: OpenWindowAction) {
         NSApp.setActivationPolicy(.regular)
@@ -25,17 +25,19 @@ enum DashboardWindow {
 /// the popover states *where* the dashboard should be, and the dashboard consumes
 /// it — on appear (opened from closed) or on change (already on screen).
 @Observable
-final class DashboardNavigator {
+public final class DashboardNavigator {
     /// Where the dashboard should land when it next opens or comes forward. A
     /// one-shot request: "Dashboard" asks for `.root`, "How to use" for `.guide`.
     /// Consuming it resets the stack, so a window closed mid-guide never reopens
     /// onto that stale, un-popped page.
     enum Destination { case root, guide }
     var pending: Destination?
+
+    public init() {}
 }
 
 /// Aggregated view of your focus history across sessions.
-struct DashboardView: View {
+public struct DashboardView: View {
     @Query(sort: \DayRollup.day) private var dayRollups: [DayRollup]
     @Query private var appRollups: [DayAppRollup]
     /// Windowed completed sessions — only needed for the by-label rollup.
@@ -48,7 +50,7 @@ struct DashboardView: View {
     /// button or a deep-link from the popover), alongside the value-based links.
     @State private var path = NavigationPath()
 
-    init(now: Date = .now, calendar: Calendar = .current) {
+    public init(now: Date = .now, calendar: Calendar = .current) {
         let today = calendar.startOfDay(for: now)
         let windowStart = calendar.date(byAdding: .day, value: -13, to: today) ?? today
         _windowSessions = Query(
@@ -63,7 +65,7 @@ struct DashboardView: View {
         _recentSessions = Query(recent)
     }
 
-    var body: some View {
+    public var body: some View {
         let insights = computeInsights()
         NavigationStack(path: $path) {
             ScrollView {

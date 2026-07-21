@@ -7,6 +7,15 @@ tagged release; loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Testable core + CI.** Extracted all logic and UI into a **`DeepFocusCore`**
+  framework (the app target is now just the `@main` entry + scenes), and added a
+  **Swift Testing** suite (`DeepFocusTrackerTests/`, 45 tests / 8 suites) covering
+  the pure aggregators (`UsageAggregator`, `InsightsService`, `TimeFormat`,
+  `LabelChooser`) and the SwiftData paths (`FocusController`, `Rollups`,
+  `SessionHistory`), including a `DayRollup`/`DayAppRollup`-vs-raw consistency
+  check. **GitHub Actions CI** runs `xcodebuild test` on every push / PR. The rule
+  is now documented (CLAUDE.md → Testing): every behavioral change ships with tests
+  and a green `xcodebuild test`.
 - **In-app "How to use" guide** (`GuideView`) reached from a **?** in the popover
   header and the dashboard toolbar: how tracking works, a glossary of every metric
   (Active, Away, Switches, per-app %, Target, Streak) with how each is calculated,
