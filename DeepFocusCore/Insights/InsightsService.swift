@@ -1,13 +1,34 @@
 import Foundation
 
-/// A completed block's label + active time, for the by-label rollup. Kept as a
-/// plain value so aggregation stays free of SwiftUI/SwiftData.
+/// A completed block's label + active time, for the by-label rollup and the daily
+/// review. Kept as a plain value so aggregation stays free of SwiftUI/SwiftData.
 struct SessionRecord {
     let start: Date
     let end: Date
     let label: String
     let activeSeconds: TimeInterval
     let awaySeconds: TimeInterval
+    /// Frontmost-app switches during the block; summed for the daily review's
+    /// fragmentation stat. Defaults to 0 for call sites that don't need it (the
+    /// by-label rollup ignores it).
+    let switchCount: Int
+
+    init(
+        start: Date,
+        end: Date,
+        label: String,
+        activeSeconds: TimeInterval,
+        awaySeconds: TimeInterval,
+        switchCount: Int = 0
+    ) {
+        self.start = start
+        self.end = end
+        self.label = label
+        self.activeSeconds = activeSeconds
+        self.awaySeconds = awaySeconds
+        self.switchCount = switchCount
+    }
+
     var duration: TimeInterval { end.timeIntervalSince(start) }
 }
 
@@ -56,6 +77,21 @@ struct Insights {
     static let empty = Insights(
         todayActive: 0, todayBlocks: 0, streakDays: 0,
         windowActive: 0, windowBlocks: 0, daily: [], byApp: [], byLabel: []
+    )
+}
+
+/// One day's review: the day's totals plus where the time went across its blocks.
+/// A pure value form — the block *list* is read live for navigation, so this
+/// carries only the aggregates. Powers `TodayReviewView`.
+struct DayReview {
+    let activeSeconds: TimeInterval
+    let awaySeconds: TimeInterval
+    let blockCount: Int
+    let switchCount: Int
+    let byApp: [AppUsage]   // where the time went that day, by active time, desc
+
+    static let empty = DayReview(
+        activeSeconds: 0, awaySeconds: 0, blockCount: 0, switchCount: 0, byApp: []
     )
 }
 
@@ -143,6 +179,43 @@ enum InsightsService {
             daily: daily,
             byApp: byApp,
             byLabel: byLabel
+        )
+    }
+
+    /// Aggregate a single day's completed blocks + per-app rollups into a review:
+    /// totals (active / away / blocks / switches) and the per-app breakdown sorted
+    /// by active time. Scopes to `now`'s day itself (like `compute`), so it's
+    /// deterministic and robust even if the caller hands it a wider slice.
+    static func dayReview(
+        sessions: [SessionRecord],
+        appDays: [AppDayStat],
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> DayReview {
+        let todaySessions = sessions.filter { calendar.isDate($0.start, inSameDayAs: now) }
+        let todayApps = appDays.filter { calendar.isDate($0.day, inSameDayAs: now) }
+
+        let active = todaySessions.reduce(0) { $0 + $1.activeSeconds }
+        let away = todaySessions.reduce(0) { $0 + $1.awaySeconds }
+        let switches = todaySessions.reduce(0) { $0 + $1.switchCount }
+
+        // Fold per-app rollups by bundle (one row per app for a single day already,
+        // but fold defensively), sorted by active time descending.
+        var appTotals: [String: (name: String, seconds: TimeInterval)] = [:]
+        for app in todayApps {
+            let running = appTotals[app.bundleID]?.seconds ?? 0
+            appTotals[app.bundleID] = (app.appName, running + app.seconds)
+        }
+        let byApp = appTotals
+            .map { AppUsage(bundleID: $0.key, appName: $0.value.name, seconds: $0.value.seconds) }
+            .sorted { $0.seconds > $1.seconds }
+
+        return DayReview(
+            activeSeconds: active,
+            awaySeconds: away,
+            blockCount: todaySessions.count,
+            switchCount: switches,
+            byApp: byApp
         )
     }
 }

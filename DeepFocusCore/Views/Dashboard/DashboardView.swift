@@ -93,6 +93,9 @@ public struct DashboardView: View {
             // in destination-closure links (`NavigationLink { SomeView() }`) —
             // mixing the two styles desyncs the stack and intermittently misroutes
             // Back (e.g. popping "All Sessions" jumps into a session detail).
+            .navigationDestination(for: TodayRoute.self) { _ in
+                TodayReviewView()
+            }
             .navigationDestination(for: FocusSession.self) { session in
                 SessionDetailView(session: session)
             }
@@ -157,15 +160,26 @@ public struct DashboardView: View {
     @ViewBuilder
     private func tiles(_ insights: Insights) -> some View {
         HStack(spacing: 14) {
-            tile("Today", TimeFormat.compact(insights.todayActive), blocksCaption(insights.todayBlocks))
+            // The Today tile drills into the daily review; keep it value-based like
+            // every other push in this stack (see the NavigationStack note above).
+            NavigationLink(value: TodayRoute()) {
+                tile("Today", TimeFormat.compact(insights.todayActive), blocksCaption(insights.todayBlocks), showsDisclosure: true)
+            }
+            .buttonStyle(.plain)
             tile("Streak", "\(insights.streakDays)", insights.streakDays == 1 ? "day" : "days")
             tile("Last 14 days", TimeFormat.compact(insights.windowActive), blocksCaption(insights.windowBlocks))
         }
     }
 
-    private func tile(_ title: String, _ value: String, _ caption: String) -> some View {
+    private func tile(_ title: String, _ value: String, _ caption: String, showsDisclosure: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                if showsDisclosure {
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
             Text(value).font(.system(size: 26, weight: .semibold, design: .rounded)).monospacedDigit()
             Text(caption).font(.caption2).foregroundStyle(.secondary)
         }

@@ -35,7 +35,7 @@ file-system **synchronized groups** — see [Build & packaging](#build--packagin
 | `DeepFocusCore/Models/` | SwiftData `@Model` types: `FocusSession`, `AppInterval`, `SessionLabel`, `DayRollup`, `DayAppRollup`. |
 | `DeepFocusCore/Focus/` | The tracking engine: `FocusController` (session lifecycle + state), `ActivityMonitor` (frontmost-app timeline), `IdleDetector` (idle → Away), `UsageAggregator` (pure per-app rollup), `Rollups` (denormalized daily rollups), `SessionHistory` (delete a block + its intervals). |
 | `DeepFocusCore/Insights/` | `InsightsService` — pure aggregation of history into dashboard figures. |
-| `DeepFocusCore/Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `AllSessionsView`, `SessionDetailView`). |
+| `DeepFocusCore/Views/` | `MenuBarView` (popover), `MenuBarLabel` (status-item), `SessionSummaryView`, and `Dashboard/` (`DashboardView`, `TodayReviewView`, `AllSessionsView`, `SessionDetailView`, `GuideView`). |
 | `DeepFocusCore/Support/` | Shared helpers: `TimeFormat` (formatting), `LabelChooser` (label ordering), and `DeepFocusStore` (the SwiftData `ModelContainer` factory). |
 
 A small `public` surface (`FocusController`, `DashboardNavigator`, the three
@@ -234,6 +234,15 @@ historical block, with no per-app cap. Deleting routes through
 `SessionHistory.delete` (session + its intervals, and it decrements that day's
 rollups) behind a confirmation.
 
+The **Today review** (`TodayReviewView`, pushed from the Today tile via the
+value route `TodayRoute`) is the same judgment-free shape scoped to *one day*: it
+queries today's completed sessions (by `start`, so it agrees with the tile's
+`DayRollup`-backed total) plus today's `DayAppRollup`, and the pure
+`InsightsService.dayReview` folds them into the day's totals + per-app breakdown.
+Like the rest of the dashboard it never scans `AppInterval` for the aggregate —
+only the per-block drill-in does, one session at a time. Its day boundary is
+captured at open (see [Known limitations](#known-limitations--future)).
+
 ## Scalability & rollups
 
 The dashboard must stay fast with tens of thousands of sessions / hundreds of
@@ -392,4 +401,9 @@ must be green before commit (CI enforces it). See
 - **Per-app % is of active time** (excludes Away) — could be made configurable.
 - **Single dashboard window**; no export. Blocks can be inspected and deleted,
   but not edited.
+- **The dashboard's day window is captured at open.** `DashboardView` and
+  `TodayReviewView` derive their `today` boundary from `now` at init, so a window
+  left open across midnight keeps showing the prior day until it's reopened.
+  Acceptable for a menu-bar app normally opened on demand; a day-rollover refresh
+  is the fix if it becomes annoying.
 - See [SPEC.md](SPEC.md) §11 for the running list of open questions.
