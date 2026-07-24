@@ -75,4 +75,66 @@ struct DayReviewTests {
         #expect(review.activeSeconds == 0)
         #expect(review.byApp.isEmpty)
     }
+
+    // MARK: Off-focus gaps
+
+    @Test func gapAppearsBetweenConsecutiveBlocksWithItsDurationAndBounds() {
+        // 09:00–10:00, then 11:00–12:00 → a 1h off-focus gap in between.
+        let review = InsightsService.dayReview(
+            sessions: [block(hour: 9, active: 3600), block(hour: 11, active: 3600)],
+            appDays: [], now: now, calendar: cal
+        )
+        #expect(review.gaps.count == 1)
+        let gap = review.gaps.first
+        #expect(gap?.precedingIndex == 0)
+        #expect(gap?.duration == 3600)
+        #expect(gap?.start == utcDate(2026, 1, 15, hour: 10))
+        #expect(gap?.end == utcDate(2026, 1, 15, hour: 11))
+    }
+
+    @Test func aSingleBlockHasNoGaps() {
+        let review = InsightsService.dayReview(
+            sessions: [block(hour: 9, active: 3600)], appDays: [], now: now, calendar: cal
+        )
+        #expect(review.gaps.isEmpty)
+    }
+
+    @Test func subMinuteGapsAreOmittedAsNoise() {
+        // 09:00–10:00, then a block starting 30s later — below the 60s floor.
+        let a = SessionRecord(
+            start: utcDate(2026, 1, 15, hour: 9), end: utcDate(2026, 1, 15, hour: 10),
+            label: "A", activeSeconds: 3600, awaySeconds: 0
+        )
+        let b = SessionRecord(
+            start: utcDate(2026, 1, 15, hour: 10).addingTimeInterval(30),
+            end: utcDate(2026, 1, 15, hour: 11),
+            label: "B", activeSeconds: 3000, awaySeconds: 0
+        )
+        let review = InsightsService.dayReview(sessions: [a, b], appDays: [], now: now, calendar: cal)
+        #expect(review.gaps.isEmpty)
+    }
+
+    @Test func multipleGapsCarryTheirPrecedingBlockIndexInChronologicalOrder() {
+        // Deliberately unsorted input: dayReview must sort before pairing, so the
+        // gaps' precedingIndex matches the view's chronological @Query order.
+        let sessions = [
+            block(hour: 14, active: 3600), // 14:00–15:00
+            block(hour: 9, active: 3600),  // 09:00–10:00
+            block(hour: 11, active: 3600), // 11:00–12:00
+        ]
+        let review = InsightsService.dayReview(sessions: sessions, appDays: [], now: now, calendar: cal)
+        #expect(review.gaps.map(\.precedingIndex) == [0, 1])
+        #expect(review.gaps.map(\.duration) == [3600, 7200]) // 10→11 = 1h; 12→14 = 2h
+    }
+
+    @Test func gapsNeverPairAcrossDays() {
+        // A block today and one yesterday must not form a cross-day gap.
+        let sessions = [
+            block(hour: 9, active: 3600),
+            block(hour: 15, active: 3600, on: (2026, 1, 14)),
+        ]
+        let review = InsightsService.dayReview(sessions: sessions, appDays: [], now: now, calendar: cal)
+        #expect(review.blockCount == 1)
+        #expect(review.gaps.isEmpty)
+    }
 }

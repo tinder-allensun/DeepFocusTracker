@@ -202,9 +202,14 @@ Roadmap (details below). Every milestone ships something you can *see* working �
     route `TodayRoute`): a header (Active / Away / Blocks / Switches), the day's
     completed blocks in **chronological order** (each drills into the existing
     `SessionDetailView`), and a **"where the time went today"** per-app breakdown.
+  - Between consecutive blocks the list shows **off-focus gaps** — a muted timeline
+    connector with the gap's duration (e.g. "off focus · 1h 5m"), for gaps ≥ 1 min.
+    Neutral wording, *not* "idle": the app records nothing between blocks, so it
+    makes no claim about what you were doing (a meeting, lunch, other work).
   - A pure **`InsightsService.dayReview(sessions:appDays:now:calendar:)`** folds the
-    day's totals + per-app breakdown (unit-tested; `now` / `calendar` injected).
-    `SessionRecord` gained `switchCount` for the day's fragmentation stat.
+    day's totals + per-app breakdown + off-focus gaps (unit-tested; `now` /
+    `calendar` injected). `SessionRecord` gained `switchCount` for the day's
+    fragmentation stat.
 - **Scalability:** reads a *single day* — today's completed `FocusSession`s
   (indexed on `start`) + today's `DayAppRollup` (indexed on `day`), never the
   `AppInterval` table; no pagination needed (a day self-limits). Read-only — no

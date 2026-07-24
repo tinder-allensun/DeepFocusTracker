@@ -238,7 +238,10 @@ The **Today review** (`TodayReviewView`, pushed from the Today tile via the
 value route `TodayRoute`) is the same judgment-free shape scoped to *one day*: it
 queries today's completed sessions (by `start`, so it agrees with the tile's
 `DayRollup`-backed total) plus today's `DayAppRollup`, and the pure
-`InsightsService.dayReview` folds them into the day's totals + per-app breakdown.
+`InsightsService.dayReview` folds them into the day's totals, per-app breakdown,
+and the **off-focus gaps** between consecutive blocks (rendered as a muted
+timeline connector — neutral "off focus", not "idle", since the app records
+nothing between blocks).
 Like the rest of the dashboard it never scans `AppInterval` for the aggregate —
 only the per-block drill-in does, one session at a time. Its day boundary is
 captured at open (see [Known limitations](#known-limitations--future)).

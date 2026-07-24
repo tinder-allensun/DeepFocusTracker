@@ -80,18 +80,34 @@ struct Insights {
     )
 }
 
-/// One day's review: the day's totals plus where the time went across its blocks.
-/// A pure value form — the block *list* is read live for navigation, so this
-/// carries only the aggregates. Powers `TodayReviewView`.
+/// A stretch of time between two consecutive focus blocks on the same day — time
+/// spent *not* in any block. The app records nothing here, so it's labeled
+/// neutrally ("off focus"), not "idle": we don't know what you were doing (a
+/// meeting, lunch, other work). Records, doesn't judge.
+struct FocusGap: Identifiable {
+    /// Chronological index of the block *before* the gap (0-based over the day's
+    /// blocks, earliest first), so the view can interleave gaps between rows.
+    let precedingIndex: Int
+    let start: Date   // == the preceding block's end
+    let end: Date     // == the following block's start
+    var duration: TimeInterval { end.timeIntervalSince(start) }
+    var id: Int { precedingIndex }
+}
+
+/// One day's review: the day's totals, where the time went across its blocks, and
+/// the off-focus gaps between them. A pure value form — the block *list* is read
+/// live for navigation, so this carries only the aggregates. Powers
+/// `TodayReviewView`.
 struct DayReview {
     let activeSeconds: TimeInterval
     let awaySeconds: TimeInterval
     let blockCount: Int
     let switchCount: Int
     let byApp: [AppUsage]   // where the time went that day, by active time, desc
+    let gaps: [FocusGap]    // off-focus stretches between consecutive blocks
 
     static let empty = DayReview(
-        activeSeconds: 0, awaySeconds: 0, blockCount: 0, switchCount: 0, byApp: []
+        activeSeconds: 0, awaySeconds: 0, blockCount: 0, switchCount: 0, byApp: [], gaps: []
     )
 }
 
@@ -183,16 +199,22 @@ enum InsightsService {
     }
 
     /// Aggregate a single day's completed blocks + per-app rollups into a review:
-    /// totals (active / away / blocks / switches) and the per-app breakdown sorted
-    /// by active time. Scopes to `now`'s day itself (like `compute`), so it's
-    /// deterministic and robust even if the caller hands it a wider slice.
+    /// totals (active / away / blocks / switches), the per-app breakdown sorted by
+    /// active time, and the off-focus gaps between consecutive blocks (those at
+    /// least `minimumGap` long). Scopes to `now`'s day itself (like `compute`), so
+    /// it's deterministic and robust even if the caller hands it a wider slice.
     static func dayReview(
         sessions: [SessionRecord],
         appDays: [AppDayStat],
         now: Date = .now,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        minimumGap: TimeInterval = 60
     ) -> DayReview {
-        let todaySessions = sessions.filter { calendar.isDate($0.start, inSameDayAs: now) }
+        // Chronological order — the gaps' `precedingIndex` and the view's
+        // `@Query`-sorted list must agree, so both sort by `start` ascending.
+        let todaySessions = sessions
+            .filter { calendar.isDate($0.start, inSameDayAs: now) }
+            .sorted { $0.start < $1.start }
         let todayApps = appDays.filter { calendar.isDate($0.day, inSameDayAs: now) }
 
         let active = todaySessions.reduce(0) { $0 + $1.activeSeconds }
@@ -210,12 +232,27 @@ enum InsightsService {
             .map { AppUsage(bundleID: $0.key, appName: $0.value.name, seconds: $0.value.seconds) }
             .sorted { $0.seconds > $1.seconds }
 
+        // Off-focus gaps: the gap after block i is next.start − this.end. Blocks
+        // never overlap (only one runs at a time), so a non-positive gap can't
+        // normally happen — clamp defensively — and sub-minute gaps are dropped as
+        // noise (back-to-back blocks).
+        var gaps: [FocusGap] = []
+        for index in todaySessions.indices.dropLast() {
+            let current = todaySessions[index]
+            let next = todaySessions[index + 1]
+            let seconds = next.start.timeIntervalSince(current.end)
+            if seconds >= minimumGap {
+                gaps.append(FocusGap(precedingIndex: index, start: current.end, end: next.start))
+            }
+        }
+
         return DayReview(
             activeSeconds: active,
             awaySeconds: away,
             blockCount: todaySessions.count,
             switchCount: switches,
-            byApp: byApp
+            byApp: byApp,
+            gaps: gaps
         )
     }
 }

@@ -47,7 +47,7 @@ struct TodayReviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header(review)
-                blocksSection()
+                blocksSection(review)
                 if !review.byApp.isEmpty { perAppSection(review) }
             }
             .padding(20)
@@ -109,19 +109,54 @@ struct TodayReviewView: View {
     }
 
     @ViewBuilder
-    private func blocksSection() -> some View {
+    private func blocksSection(_ review: DayReview) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your focus blocks today").font(.headline)
             if sessions.isEmpty {
                 emptyHint("No focus blocks today yet. Start one from the menu bar.")
             } else {
-                ForEach(sessions) { session in
+                // A divider sits between every consecutive block for a steady
+                // rhythm; where there's ≥ 1 min of off-focus time the gap connector
+                // sits in that space, bracketed by dividers. Gaps are keyed by the
+                // chronological index of the block before them (from dayReview,
+                // whose ordering matches this @Query's `start` sort).
+                let gapsByPreceding = Dictionary(
+                    uniqueKeysWithValues: review.gaps.map { ($0.precedingIndex, $0) }
+                )
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     NavigationLink(value: session) { blockRow(session) }
                         .buttonStyle(.plain)
-                    Divider()
+                    if index < sessions.count - 1 {
+                        Divider()
+                        if let gap = gapsByPreceding[index] {
+                            gapRow(gap)
+                            Divider()
+                        }
+                    }
                 }
             }
         }
+    }
+
+    /// The off-focus stretch between two blocks — a muted, non-interactive timeline
+    /// connector, so it's instantly distinguishable from the (tappable) block rows.
+    /// Neutral wording: the app recorded nothing here, so it makes no claim that you
+    /// were idle.
+    private func gapRow(_ gap: FocusGap) -> some View {
+        HStack(spacing: 10) {
+            // A short vertical tick reading as the connective "space between".
+            RoundedRectangle(cornerRadius: 1)
+                .fill(.tertiary)
+                .frame(width: 2, height: 16)
+            Text("off focus · \(TimeFormat.compact(gap.duration))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 6)
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Off focus for \(TimeFormat.compact(gap.duration))")
     }
 
     private func blockRow(_ session: FocusSession) -> some View {
