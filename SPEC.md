@@ -1,6 +1,6 @@
 # DeepFocusTracker — MVP Specification
 
-_Last updated: 2026-07-20 · Status: M1–M3 shipped (+ session detail, history management, in-app guide, readable durations & recently-used labels); M4 (polish) next_
+_Last updated: 2026-07-23 · Status: M1–M3 shipped (+ session detail, history management, in-app guide, readable durations, recently-used labels & a daily review); M4 (polish) next_
 
 ## 1. Overview
 
@@ -60,7 +60,7 @@ Start block (+ label)
 | 2 | **Session labels** | Name each block or pick a reusable label (e.g. *Writing*, *Coding*, *Email*) with a color. Labels you type are remembered; the quick-pick chooser lists your **most-recently-used** first, then the seed defaults, capped at 5. Right-click a chip to **delete** it — that only drops the suggestion; recorded sessions keep their label. |
 | 3 | **Automatic app-usage tracking** | While a block runs, record time spent in each frontmost app and the **% of the block** it took, plus idle **"Away"** time. The current app is always shown. No focus/distraction judgment — just the numbers. |
 | 4 | **Session summary** | On block end: per-app **time + %**, active vs. away time, and an **app-switch count**. You review and interpret it. |
-| 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. Click any block for its **full per-app detail** (time + %, active/away/switches), browse the complete **All Sessions** history, and **delete** blocks you don't want to keep. |
+| 5 | **Dashboard window** | Today/streak/last-14-days tiles, an active-minutes-per-day trend, per-app and per-label breakdowns, and a recent-blocks history — aggregated across sessions. Tap the **Today** tile for a **daily review**: the day's blocks in chronological order (each drills into its detail) and where the time went today. Click any block for its **full per-app detail** (time + %, active/away/switches), browse the complete **All Sessions** history, and **delete** blocks you don't want to keep. |
 | 6 | **Settings** | Default block length, idle timeout, launch-at-login. |
 | 7 | **Local & private** | No account, no network calls, no telemetry. Data in a local store on the Mac. |
 | 8 | **In-app guide** | A "How to use" page (opened from a **?** in the popover header or the dashboard toolbar): how tracking works, a glossary of every metric with **how each is calculated**, and the privacy note. Durations read as compact, self-labeling values (`25m`, `1h 20m`). |
@@ -137,6 +137,7 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 | M3.1 — Session history | ✅ shipped | Click into any block for full detail; browse All Sessions; delete blocks |
 | M3.2 — Guide & readable durations | ✅ shipped | In-app "How to use" guide; compact, self-labeling durations across the dashboard |
 | M3.3 — Testable core + CI | ✅ shipped | `DeepFocusCore` framework, Swift Testing suite over the core, GitHub Actions guardrail |
+| M3.4 — Daily review | ✅ shipped | Tap the Today tile for a chronological recap of the day + where the time went |
 | M4 — Polish | ← next | Settings, launch-at-login |
 
 ### M1 — Skeleton ✅ (shipped)
@@ -193,6 +194,34 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 - **Key files:** `DeepFocusCore/*` (moved out of the app target), `DeepFocusTracker/App/DeepFocusTrackerApp.swift` (thin shell + `DeepFocusStore.make()`), `DeepFocusTrackerTests/*`, `.github/workflows/ci.yml`.
 - **Verified:** `xcodebuild test` green (45 tests); the app builds and embeds the framework cleanly.
 
+### M3.4 — Daily review ✅ (shipped 2026-07-23)
+- **Goal:** a focused, judgment-free recap of the *current day* — how many focus
+  blocks, what each was, and where the time went — to review and reflect on.
+- **Built:**
+  - Tapping the dashboard's **Today** tile pushes a **`TodayReviewView`** (value
+    route `TodayRoute`): a header (Active / Away / Blocks / Switches), the day's
+    completed blocks in **chronological order** (each drills into the existing
+    `SessionDetailView`), and a **"where the time went today"** per-app breakdown.
+  - Between consecutive blocks the list shows **off-focus gaps** — a muted timeline
+    connector with the gap's duration (e.g. "off focus · 1h 5m"), for gaps ≥ 1 min.
+    Neutral wording, *not* "idle": the app records nothing between blocks, so it
+    makes no claim about what you were doing (a meeting, lunch, other work).
+  - A pure **`InsightsService.dayReview(sessions:appDays:now:calendar:)`** folds the
+    day's totals + per-app breakdown + off-focus gaps (unit-tested; `now` /
+    `calendar` injected). `SessionRecord` gained `switchCount` for the day's
+    fragmentation stat.
+- **Scalability:** reads a *single day* — today's completed `FocusSession`s
+  (indexed on `start`) + today's `DayAppRollup` (indexed on `day`), never the
+  `AppInterval` table; no pagination needed (a day self-limits). Read-only — no
+  change to the write path.
+- **Key files:** `Views/Dashboard/TodayReviewView.swift`, `Insights/InsightsService.swift`
+  (`DayReview` + `dayReview`), `Views/Dashboard/DashboardView.swift` (tappable tile
+  + destination), `DeepFocusTrackerTests/DayReviewTests.swift`.
+- **Known limitation:** the day boundary is captured when the screen opens, so a
+  dashboard left open across midnight shows the prior day until reopened (mirrors
+  the rest of the dashboard — see §11).
+- **Verified:** `xcodebuild test` green (new `DayReviewTests`); build clean.
+
 ### M4 — Polish (settings, launch-at-login)  ← next
 - **Goal:** make it configurable and a good daily citizen.
 - **Build:**
@@ -219,3 +248,4 @@ Roadmap (details below). Every milestone ships something you can *see* working �
 - Later: opt-in window-level tracking (adds Accessibility) for finer per-app context (e.g. which site in the browser).
 - Later: optional, user-defined nudges once usage patterns are understood.
 - Later: a real SwiftData migration plan (versioned schema) before there's data worth preserving.
+- Later: the dashboard's "today" boundary is captured when the window opens; refresh it on day-rollover so a window left open overnight updates itself (affects the Today tile and the daily review).
