@@ -69,20 +69,22 @@ public struct MenuBarView: View {
 
             let chips = LabelChooser.chips(from: labels)
             if !chips.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(chips) { label in
-                            Button(label.name) { labelText = label.name }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .contextMenu {
-                                    // Right-click to drop the suggestion; recorded
-                                    // sessions keep their (string-copied) label.
-                                    Button("Delete “\(label.name)”", role: .destructive) {
-                                        focus.deleteLabel(label)
-                                    }
+                // Wrap chips onto multiple rows rather than a horizontal scroll: a
+                // macOS horizontal ScrollView won't scroll with a plain mouse wheel
+                // and left the trailing chip clipped at the popover edge. Capped at 5
+                // chips, so this is at most a couple of short rows.
+                FlowLayout(spacing: 6) {
+                    ForEach(chips) { label in
+                        Button(label.name) { labelText = label.name }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .contextMenu {
+                                // Right-click to drop the suggestion; recorded
+                                // sessions keep their (string-copied) label.
+                                Button("Delete “\(label.name)”", role: .destructive) {
+                                    focus.deleteLabel(label)
                                 }
-                        }
+                            }
                     }
                 }
             }
